@@ -380,8 +380,10 @@ export function streamExportZip(
   return new ReadableStream<Uint8Array>({
     start(controller) {
       archive.on("data", (chunk: Buffer) => {
-        if (!closed) {
-          controller.enqueue(new Uint8Array(chunk));
+        if (closed) return;
+        controller.enqueue(new Uint8Array(chunk));
+        if ((controller.desiredSize ?? 1) <= 0) {
+          archive.pause();
         }
       });
 
@@ -407,7 +409,17 @@ export function streamExportZip(
       });
 
       archive.directory(exportDir, false);
-      void archive.finalize();
+      archive.finalize().catch((err) => {
+        if (!closed) {
+          closed = true;
+          controller.error(err);
+        }
+      });
+    },
+    pull() {
+      if (!closed) {
+        archive.resume();
+      }
     },
     cancel() {
       closed = true;

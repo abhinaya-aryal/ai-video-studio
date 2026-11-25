@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -9,8 +10,9 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { ZipArchive } from "archiver";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeDbForTests, getDb } from "@/db";
 import { assets, projects, referenceElements, scenes } from "@/db/schema";
 import {
@@ -523,5 +525,98 @@ describe("Kdenlive export builder", () => {
     expect(buf.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
     expect(buf.toString("latin1")).toContain("01_shot-one.mp4");
     expect(buf.toString("latin1")).toContain("project.kdenlive");
+  });
+
+  it("applies ReadableStream backpressure by pausing and resuming archiver across chunks", async () => {
+    const db = getDb();
+    ensureProjectDirs("zip-backpressure");
+
+    db.insert(projects)
+      .values({
+        id: "proj-bp",
+        slug: "zip-backpressure",
+        title: "Zip Backpressure",
+      })
+      .run();
+
+    db.insert(scenes)
+      .values({
+        id: "sbp1",
+        projectId: "proj-bp",
+        orderIndex: 1,
+        slug: "large-shot",
+        title: "Large Shot",
+        duration: 5,
+        activeVideoAssetId: "abp1",
+      })
+      .run();
+
+    // 512 KB incompressible payload forces archiver to emit multiple chunks
+    seedAssetFile(
+      "zip-backpressure/scenes/01_large-shot/clip_v1.mp4",
+      randomBytes(512 * 1024),
+    );
+    db.insert(assets)
+      .values({
+        id: "abp1",
+        projectId: "proj-bp",
+        sceneId: "sbp1",
+        type: "video",
+        role: "video_clip",
+        version: 1,
+        filePath: "zip-backpressure/scenes/01_large-shot/clip_v1.mp4",
+      })
+      .run();
+
+    await rebuildKdenliveExport("proj-bp");
+
+    const pauseSpy = vi.spyOn(ZipArchive.prototype, "pause");
+    const resumeSpy = vi.spyOn(ZipArchive.prototype, "resume");
+
+    try {
+      const stream = streamExportZip("proj-bp");
+      const reader = stream.getReader();
+      const chunks: Uint8Array[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) chunks.push(value);
+        // Yield briefly to simulate a slower consumer
+        await new Promise((resolve) => setTimeout(resolve, 2));
+      }
+
+      const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+      expect(buf.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+      expect(pauseSpy).toHaveBeenCalled();
+      expect(resumeSpy).toHaveBeenCalled();
+    } finally {
+      pauseSpy.mockRestore();
+      resumeSpy.mockRestore();
+    }
+  });
+
+  it("propagates archive.finalize() rejections to the ReadableStream consumer", async () => {
+    const db = getDb();
+    ensureProjectDirs("zip-finalize-err");
+
+    db.insert(projects)
+      .values({
+        id: "proj-err",
+        slug: "zip-finalize-err",
+        title: "Zip Error",
+      })
+      .run();
+
+    const finalizeSpy = vi
+      .spyOn(ZipArchive.prototype, "finalize")
+      .mockRejectedValueOnce(new Error("finalize boom"));
+
+    try {
+      const stream = streamExportZip("proj-err");
+      await expect(readStreamToBuffer(stream)).rejects.toThrow("finalize boom");
+    } finally {
+      finalizeSpy.mockRestore();
+    }
   });
 });
