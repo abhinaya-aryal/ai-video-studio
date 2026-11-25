@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  devIndicators: {
+    position: "bottom-right",
+  },
   serverExternalPackages: ["better-sqlite3", "archiver"],
   cacheComponents: true,
   partialPrefetching: true,

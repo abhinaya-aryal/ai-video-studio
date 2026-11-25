@@ -512,7 +512,8 @@ export function Stage3Video({
         <EmptyState
           icon={Film}
           title="No scenes yet"
-          description="No scenes yet. Refine or add scenes in Stage 1 first."
+          description="Add scenes in Stage 1 to generate video clips."
+          className="py-10"
         />
       ) : (
         <div className="space-y-4">

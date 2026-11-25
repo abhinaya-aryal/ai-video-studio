@@ -53,6 +53,7 @@ interface SlotConfig {
   accept: string;
   multiple: boolean;
   kind: "image" | "video" | "audio";
+  action?: string;
 }
 
 const FRAME_SLOTS: SlotConfig[] = [
@@ -62,6 +63,7 @@ const FRAME_SLOTS: SlotConfig[] = [
     accept: "image/*",
     multiple: false,
     kind: "image",
+    action: "Add First Frame",
   },
   {
     slot: "last_frame",
@@ -69,6 +71,7 @@ const FRAME_SLOTS: SlotConfig[] = [
     accept: "image/*",
     multiple: false,
     kind: "image",
+    action: "Add Last Frame",
   },
 ];
 
@@ -79,6 +82,7 @@ const REFERENCE_SLOTS: SlotConfig[] = [
     accept: "image/*",
     multiple: true,
     kind: "image",
+    action: "Add images",
   },
   {
     slot: "reference_video",
@@ -86,6 +90,7 @@ const REFERENCE_SLOTS: SlotConfig[] = [
     accept: "video/*",
     multiple: true,
     kind: "video",
+    action: "Add video",
   },
   {
     slot: "reference_audio",
@@ -93,6 +98,7 @@ const REFERENCE_SLOTS: SlotConfig[] = [
     accept: "audio/*",
     multiple: true,
     kind: "audio",
+    action: "Add audio",
   },
 ];
 
@@ -118,14 +124,14 @@ function SlotUploadButton({
       size="sm"
       disabled={disabled || uploading}
       onClick={() => inputRef.current?.click()}
-      className="gap-1.5"
+      className="w-full gap-1.5"
     >
       {uploading ? (
         <Loader2 className="size-3.5 animate-spin" />
       ) : (
         <Upload className="size-3.5" />
       )}
-      <span>Add {config.label}</span>
+      <span>{config.action ?? `Add ${config.label}`}</span>
     </Button>
   );
 
@@ -146,7 +152,7 @@ function SlotUploadButton({
       />
       {disabled && reason ? (
         <Tooltip>
-          <TooltipTrigger render={<span className="inline-block">{btn}</span>} />
+          <TooltipTrigger render={<span className="block w-full">{btn}</span>} />
           <TooltipContent className="max-w-xs">{reason}</TooltipContent>
         </Tooltip>
       ) : (
@@ -204,36 +210,39 @@ export function MediaModePicker({
       <div
         key={config.slot}
         className={cn(
-          "rounded-lg border border-border bg-background/40 p-3 space-y-2.5 transition-opacity",
+          "min-w-0 space-y-2.5 rounded-lg border border-border bg-background/40 p-3 transition-opacity",
           disabled && items.length === 0 && "opacity-60",
         )}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {config.kind === "image" && (
-              <ImagePlus className="size-4 text-muted-foreground" />
+              <ImagePlus className="size-4 shrink-0 text-muted-foreground" />
             )}
             {config.kind === "video" && (
-              <FileVideo className="size-4 text-muted-foreground" />
+              <FileVideo className="size-4 shrink-0 text-muted-foreground" />
             )}
             {config.kind === "audio" && (
-              <FileAudio className="size-4 text-muted-foreground" />
+              <FileAudio className="size-4 shrink-0 text-muted-foreground" />
             )}
-            <span className="text-xs font-medium">{config.label}</span>
-            {typeof max === "number" && (
-              <span className="text-[11px] text-muted-foreground">
-                ({items.length}/{max})
-              </span>
-            )}
+            <span className="min-w-0 text-xs leading-snug font-medium">
+              {config.label}
+            </span>
           </div>
-          <SlotUploadButton
-            config={config}
-            disabled={disabled}
-            reason={reason}
-            uploading={uploadingSlot === config.slot}
-            onFiles={(files) => void onUpload(config.slot, files)}
-          />
+          {typeof max === "number" && (
+            <span className="shrink-0 font-mono text-[11px] tabular-nums text-subtle-foreground">
+              {items.length}/{max}
+            </span>
+          )}
         </div>
+
+        <SlotUploadButton
+          config={config}
+          disabled={disabled}
+          reason={reason}
+          uploading={uploadingSlot === config.slot}
+          onFiles={(files) => void onUpload(config.slot, files)}
+        />
 
         {items.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -281,9 +290,13 @@ export function MediaModePicker({
           value={mode}
           onValueChange={(next) => onModeChange(next as VideoMode)}
         >
-          <TabsList>
+          <TabsList className="rounded-lg">
             {MODE_OPTIONS.map((opt) => (
-              <TabsTrigger key={opt.value} value={opt.value}>
+              <TabsTrigger
+                key={opt.value}
+                value={opt.value}
+                className="rounded-md"
+              >
                 {opt.label}
               </TabsTrigger>
             ))}

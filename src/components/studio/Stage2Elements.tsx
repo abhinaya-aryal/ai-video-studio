@@ -169,7 +169,8 @@ export function Stage2Elements({
           <EmptyState
             icon={ImageIcon}
             title="No elements in the roster yet"
-            description="No elements in the roster yet. Add elements in Stage 1 first."
+            description="Add characters, props, or locations in Stage 1 to generate their reference sheets."
+            className="py-10"
           />
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -223,7 +224,8 @@ export function Stage2Elements({
           <EmptyState
             icon={Layers}
             title="No scenes yet"
-            description="No scenes yet. Add scenes in Stage 1 first."
+            description="Add scenes in Stage 1 to generate first and last keyframes."
+            className="py-10"
           />
         ) : (
           <div className="space-y-4">

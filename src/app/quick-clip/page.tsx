@@ -448,8 +448,8 @@ export default function QuickClipPage() {
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="space-y-1.5 lg:col-span-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
                 <label className="text-xs font-medium">Model</label>
                 <Select
                   value={modelId}
@@ -502,9 +502,8 @@ export default function QuickClipPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium">Ratio</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Ratio</label>
                   <Select
                     value={ratio}
                     onValueChange={(v) => v && setRatio(v)}
@@ -540,7 +539,6 @@ export default function QuickClipPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
             </div>
 
             <MediaModePicker
@@ -608,7 +606,7 @@ export default function QuickClipPage() {
               <EmptyState
                 icon={Clapperboard}
                 title="No Quick Clip jobs yet"
-                description="No Quick Clip jobs yet. Submit a prompt above to generate your first clip."
+                description="Submit a prompt above to generate your first clip."
                 className="border-dashed bg-surface-2/20 py-8 shadow-none"
               />
             ) : (

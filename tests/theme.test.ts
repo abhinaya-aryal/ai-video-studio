@@ -33,6 +33,22 @@ describe("nebula theme foundation", () => {
     }
   });
 
+  it("keeps corner radii compact instead of pill-shaped", () => {
+    expect(read("src/styles/theme.css")).toContain("--radius: 10px");
+    const globals = read("src/app/globals.css");
+    for (const token of [
+      "--radius-sm: 6px",
+      "--radius-md: 8px",
+      "--radius-lg: var(--radius)",
+      "--radius-xl: 10px",
+      "--radius-2xl: 14px",
+      "--radius-3xl: 18px",
+      "--radius-4xl: 22px",
+    ]) {
+      expect(globals).toContain(token);
+    }
+  });
+
   it("has no dark-mode class variants or block", () => {
     const walk = (dir: string): string[] =>
       readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {

@@ -1,16 +1,21 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  BookOpen,
   Boxes,
   Clapperboard,
   Film,
   FolderKanban,
+  HelpCircle,
   Palette,
   Settings,
 } from "lucide-react";
+import { GuideDialog } from "@/components/GuideDialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const WORKSPACE_ITEMS = [
@@ -36,6 +41,32 @@ const MOBILE_ITEMS = [
 
 export function NavSidebar() {
   const pathname = usePathname();
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== "?" ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setGuideOpen((open) => !open);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -54,7 +85,7 @@ export function NavSidebar() {
         key={href}
         href={href}
         className={cn(
-          "relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "relative flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
           active
             ? "bg-surface-2 text-foreground shadow-[inset_0_1px_0_#ffffff0a,0_8px_20px_-14px_var(--glow-1)]"
             : "text-muted-foreground hover:bg-surface-2/60 hover:text-foreground",
@@ -82,7 +113,7 @@ export function NavSidebar() {
       {/* Desktop sidebar */}
       <aside className="hidden md:sticky md:top-0 md:flex md:h-screen md:w-[272px] md:shrink-0 md:flex-col md:overflow-y-auto border-r border-border bg-sidebar/90 bg-[radial-gradient(120%_45%_at_0%_0%,var(--glow-1),transparent_70%)] backdrop-blur">
         <div className="flex items-center gap-3 border-b border-border px-5 py-5">
-          <div className="flow-icon flex size-9 shrink-0 items-center justify-center rounded-xl">
+          <div className="flow-icon flex size-9 shrink-0 items-center justify-center rounded-lg">
             <Film className="size-4" />
           </div>
           <div className="min-w-0 flex flex-col">
@@ -115,7 +146,22 @@ export function NavSidebar() {
           </div>
         </nav>
 
-        <div className="mt-auto p-3.5">
+        <div className="mt-auto space-y-2 p-3.5">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-between text-xs"
+            aria-haspopup="dialog"
+            onClick={() => setGuideOpen(true)}
+          >
+            <span className="flex items-center gap-2">
+              <BookOpen className="size-4" aria-hidden="true" />
+              How it works
+            </span>
+            <kbd className="rounded-sm border border-border-strong bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-subtle-foreground">
+              ?
+            </kbd>
+          </Button>
           <div className="panel px-3.5 py-3 text-xs text-muted-foreground">
             <p className="font-medium text-foreground">Local SQLite + Disk</p>
             <p className="mt-0.5 text-[11px] text-subtle-foreground">
@@ -153,8 +199,19 @@ export function NavSidebar() {
               </Link>
             );
           })}
+          <button
+            type="button"
+            aria-label="Open studio guide"
+            aria-haspopup="dialog"
+            onClick={() => setGuideOpen(true)}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <HelpCircle className="size-4" aria-hidden="true" />
+          </button>
         </nav>
       </header>
+
+      <GuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
     </>
   );
 }

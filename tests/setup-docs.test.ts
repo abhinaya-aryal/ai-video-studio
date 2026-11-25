@@ -67,4 +67,67 @@ describe("day-1 documentation and repository setup", () => {
       expect(exampleKeys.has(key)).toBe(true);
     }
   });
+
+  it("documents every environment key with a README table row", () => {
+    const configSource = readRootFile("src/lib/config.ts");
+    const readme = readRootFile("README.md");
+
+    const referencedEnvKeys = new Set(
+      Array.from(configSource.matchAll(/process\.env\.([A-Z0-9_]+)/g)).map(
+        (match) => match[1],
+      ),
+    );
+
+    expect(readme).toContain(
+      "| Variable | Required | Default | Accepted values | Purpose |",
+    );
+    const rows = readme
+      .split(/\r?\n/)
+      .filter((line) => line.trim().startsWith("| `"));
+
+    for (const key of referencedEnvKeys) {
+      expect(
+        rows.some((row) => row.trim().startsWith(`| \`${key}\` |`)),
+        `README is missing a table row for ${key}`,
+      ).toBe(true);
+    }
+  });
+
+  it("documents built-in model options and where to find newer models", () => {
+    const readme = readRootFile("README.md");
+
+    for (const modelId of [
+      "wan3.0-video",
+      "wan3.0-video-prime",
+      "wan2.7-t2v",
+      "wan2.7-i2v",
+      "wan2.7-r2v",
+      "wan2.7-image-pro",
+      "wan2.7-image",
+      "qwen-image-3.0",
+      "qwen-audio-3.0-tts-plus",
+      "qwen-plus",
+      "qwen-max",
+      "qwen-turbo",
+    ]) {
+      expect(readme).toContain(modelId);
+    }
+
+    for (const family of ["wan3", "wan2.7", "qwen-image", "qwen-tts"]) {
+      expect(readme).toContain(family);
+    }
+
+    for (const url of [
+      "https://www.alibabacloud.com/help/en/model-studio/models",
+      "https://www.alibabacloud.com/help/en/model-studio/newly-released-models",
+      "https://www.alibabacloud.com/help/en/model-studio/wan3-0-video",
+      "https://www.alibabacloud.com/help/en/model-studio/wan3-video-generation-api-reference",
+      "https://modelstudio.console.alibabacloud.com/ap-southeast-1/model/market",
+    ]) {
+      expect(readme).toContain(url);
+    }
+
+    expect(readme).toContain("Settings → Custom Models");
+    expect(readme).toContain("src/lib/providers/catalog.ts");
+  });
 });

@@ -137,8 +137,8 @@ export default function StylePresetsPage() {
       />
 
       <section className="panel space-y-5 p-6">
-        <form onSubmit={handleAddPreset} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
+        <form onSubmit={handleAddPreset}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_auto]">
             <div className="space-y-1">
               <label className="text-xs font-medium" htmlFor="preset-name">
                 Preset Name
@@ -150,7 +150,7 @@ export default function StylePresetsPage() {
                 onChange={(e) => setPresetName(e.target.value)}
               />
             </div>
-            <div className="space-y-1 sm:col-span-2">
+            <div className="space-y-1">
               <label className="text-xs font-medium" htmlFor="preset-bible">
                 Style Bible
               </label>
@@ -162,15 +162,19 @@ export default function StylePresetsPage() {
                 onChange={(e) => setPresetStyleBible(e.target.value)}
               />
             </div>
+            <Button
+              type="submit"
+              disabled={savingPreset}
+              className="gap-1.5 self-end justify-self-start sm:col-span-2 sm:w-fit lg:col-span-1 lg:justify-self-end"
+            >
+              {savingPreset ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
+              <span>Add Style Preset</span>
+            </Button>
           </div>
-          <Button type="submit" disabled={savingPreset} className="gap-1.5">
-            {savingPreset ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Plus className="size-4" />
-            )}
-            <span>Add Style Preset</span>
-          </Button>
         </form>
 
         {presets.length === 0 ? (
