@@ -14,13 +14,6 @@ import { toast } from "sonner";
 import type { Project } from "@/db/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 interface ExportResult {
   dir: string;
@@ -75,59 +68,65 @@ export function ExportPanel({ project }: ExportPanelProps) {
   const kdenliveUrl = `/api/files/${project.slug}/export_kdenlive/project.kdenlive`;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <CardTitle className="flex items-center gap-2">
-            <Archive className="size-4 text-primary" />
-            Kdenlive Export
-          </CardTitle>
-          <CardDescription>
-            Assemble active scene clips, voiceovers, <code>story.md</code>, and
-            a starter <code>project.kdenlive</code> timeline in current scene
-            order.
-          </CardDescription>
+    <section className="panel overflow-hidden">
+      <div className="prism-line" aria-hidden="true" />
+      <div className="space-y-5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+              <Archive className="size-4 text-primary" />
+              Kdenlive Export
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Assemble active scene clips, voiceovers,{" "}
+              <code className="font-mono text-xs">story.md</code>, and a starter{" "}
+              <code className="font-mono text-xs">project.kdenlive</code>{" "}
+              timeline in current scene order.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleRebuild()}
+              disabled={rebuilding}
+              className="gap-1.5"
+            >
+              {rebuilding ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              Rebuild Export
+            </Button>
+
+            <Button
+              render={
+                <a href={zipUrl} download={`${project.slug}-kdenlive.zip`} />
+              }
+              className="gap-1.5"
+            >
+              <Archive className="size-4" />
+              Download ZIP
+            </Button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void handleRebuild()}
-            disabled={rebuilding}
-            className="gap-1.5"
-          >
-            {rebuilding ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <RefreshCw className="size-4" />
-            )}
-            Rebuild Export
-          </Button>
-
-          <Button
-            render={<a href={zipUrl} download={`${project.slug}-kdenlive.zip`} />}
-            className="gap-1.5"
-          >
-            <Archive className="size-4" />
-            Download ZIP
-          </Button>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
         {error && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
             {error}
           </div>
         )}
 
         {exportResult ? (
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-surface-2/40 px-3.5 py-2.5 text-xs">
               <div className="flex min-w-0 items-center gap-2">
                 <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
-                <span className="text-muted-foreground">Export Folder:</span>
+                <span className="shrink-0 text-muted-foreground">
+                  Export Folder:
+                </span>
                 <code className="truncate font-mono text-foreground">
                   {exportResult.dir}
                 </code>
@@ -149,20 +148,21 @@ export function ExportPanel({ project }: ExportPanelProps) {
             </div>
 
             {exportResult.missingScenes.length > 0 ? (
-              <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-3 text-xs text-amber-200">
-                <div className="mb-1.5 flex items-center gap-1.5 font-medium text-amber-300">
-                  <AlertTriangle className="size-4 shrink-0" />
-                  Missing active video clips ({exportResult.missingScenes.length})
+              <div className="rounded-xl border border-warning/40 bg-warning/10 p-3.5 text-xs text-warning">
+                <div className="mb-1.5 flex items-center gap-1.5 font-medium">
+                  <AlertTriangle className="size-4 shrink-0 text-warning" />
+                  Missing active video clips (
+                  {exportResult.missingScenes.length})
                 </div>
-                <ul className="list-disc space-y-0.5 pl-5 text-amber-200/90">
+                <ul className="list-disc space-y-0.5 pl-5 opacity-90">
                   {exportResult.missingScenes.map((title, idx) => (
                     <li key={`${title}-${idx}`}>{title}</li>
                   ))}
                 </ul>
               </div>
             ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-800/50 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-300">
-                <CheckCircle2 className="size-4 shrink-0" />
+              <div className="flex items-center gap-2 rounded-xl border border-success/40 bg-success/10 px-3.5 py-2.5 text-xs text-success">
+                <CheckCircle2 className="size-4 shrink-0 text-success" />
                 All scenes have active video clips included in the export.
               </div>
             )}
@@ -187,13 +187,13 @@ export function ExportPanel({ project }: ExportPanelProps) {
             )}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed px-4 py-6 text-center text-xs text-muted-foreground">
+          <div className="media-tile px-4 py-6 text-center text-xs text-muted-foreground">
             Click <strong>Rebuild Export</strong> to assemble the export folder
             and check for any missing scene clips, or click{" "}
             <strong>Download ZIP</strong> to package the latest export directly.
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

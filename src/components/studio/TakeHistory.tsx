@@ -65,7 +65,7 @@ export function TakeHistory({
       </div>
 
       {sortedTakes.length === 0 ? (
-        <div className="rounded-md border border-dashed px-3 py-2.5 text-xs text-muted-foreground">
+        <div className="media-tile px-3 py-2.5 text-xs text-subtle-foreground">
           No video takes generated for this scene yet.
         </div>
       ) : (
@@ -78,14 +78,14 @@ export function TakeHistory({
               <div
                 key={take.id}
                 className={cn(
-                  "flex items-center justify-between gap-2.5 rounded-md border p-2 text-xs",
+                  "flex items-center justify-between gap-2.5 rounded-xl border p-2 text-xs transition-colors",
                   isActive
-                    ? "border-emerald-700/60 bg-emerald-950/20"
-                    : "border-border bg-background/40",
+                    ? "border-success/40 bg-success/8"
+                    : "border-border bg-surface-2/40",
                 )}
               >
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded bg-black/40">
+                  <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded-lg bg-black">
                     <video
                       src={`/api/files/${take.filePath}`}
                       muted
@@ -98,16 +98,19 @@ export function TakeHistory({
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-1.5">
                       <Film className="size-3 shrink-0 text-muted-foreground" />
-                      <span className="font-mono font-medium">
+                      <span className="font-mono font-medium text-foreground">
                         v{take.version}
                       </span>
                       {isActive && (
-                        <Badge className="bg-emerald-950/80 px-1.5 py-0 text-[10px] text-emerald-300 border-emerald-700/60">
+                        <Badge
+                          variant="success"
+                          className="h-5 px-1.5 py-0 text-[10px]"
+                        >
                           Active
                         </Badge>
                       )}
                     </div>
-                    <div className="truncate text-[11px] text-muted-foreground">
+                    <div className="truncate text-[11px] text-subtle-foreground">
                       {new Date(take.createdAt).toLocaleString()}
                     </div>
                   </div>

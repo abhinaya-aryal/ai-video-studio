@@ -27,12 +27,12 @@ export function ShotStrip({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Shot Strip ({scenes.length})
         </h3>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-subtle-foreground">
           Click a shot to jump to scene
         </span>
       </div>
@@ -53,13 +53,12 @@ export function ShotStrip({
               type="button"
               onClick={() => onSelectScene?.(scene.id)}
               className={cn(
-                "group flex w-44 shrink-0 flex-col overflow-hidden rounded-lg border bg-card text-left transition-colors hover:border-primary/60",
-                isSelected
-                  ? "border-primary ring-1 ring-primary/40"
-                  : "border-border",
+                "panel group flex w-44 shrink-0 flex-col overflow-hidden text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring hover:border-border-strong",
+                isSelected &&
+                  "border-primary ring-2 ring-primary/40 shadow-[0_0_24px_-8px_var(--glow-1)]",
               )}
             >
-              <div className="relative aspect-video w-full bg-muted/40">
+              <div className="relative aspect-video w-full bg-surface-2/60">
                 {videoAsset ? (
                   <video
                     src={`/api/files/${videoAsset.filePath}`}
@@ -76,7 +75,7 @@ export function ShotStrip({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                  <div className="flex h-full w-full items-center justify-center text-subtle-foreground">
                     <ImageIcon className="size-5 opacity-50" />
                   </div>
                 )}
@@ -84,7 +83,7 @@ export function ShotStrip({
                 <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
                   <Badge
                     variant="secondary"
-                    className="bg-black/70 px-1.5 py-0 text-[10px] font-mono text-white"
+                    className="bg-black/70 px-1.5 py-0 font-mono text-[10px] text-white"
                   >
                     #{String(index + 1).padStart(2, "0")}
                   </Badge>
@@ -92,14 +91,17 @@ export function ShotStrip({
 
                 <div className="absolute top-1.5 right-1.5">
                   {videoAsset ? (
-                    <Badge className="bg-emerald-950/85 px-1.5 py-0 text-[10px] text-emerald-200 border-emerald-700/60">
+                    <Badge
+                      variant="success"
+                      className="h-5 px-1.5 py-0 text-[10px]"
+                    >
                       <Film className="mr-1 size-2.5" />
                       Clip
                     </Badge>
                   ) : keyframeAsset ? (
                     <Badge
-                      variant="outline"
-                      className="bg-black/70 px-1.5 py-0 text-[10px] text-zinc-200 border-zinc-600"
+                      variant="secondary"
+                      className="h-5 bg-black/70 px-1.5 py-0 text-[10px] text-white"
                     >
                       Keyframe
                     </Badge>
@@ -108,10 +110,10 @@ export function ShotStrip({
               </div>
 
               <div className="flex items-center justify-between gap-2 px-2.5 py-2">
-                <span className="truncate text-xs font-medium">
+                <span className="truncate text-xs font-medium text-foreground">
                   {scene.title}
                 </span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
+                <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
                   {scene.duration}s
                 </span>
               </div>

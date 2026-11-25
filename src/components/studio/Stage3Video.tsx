@@ -19,6 +19,7 @@ import type {
   Scene,
   VideoMode,
 } from "@/db/schema";
+import { EmptyState } from "@/components/EmptyState";
 import { JobStatusBadge } from "@/components/JobStatusBadge";
 import {
   MediaModePicker,
@@ -33,13 +34,6 @@ import { ShotStrip } from "@/components/studio/ShotStrip";
 import { TakeHistory } from "@/components/studio/TakeHistory";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { MediaType, ModelCapability } from "@/lib/providers/types";
 import { mediaModeState } from "@/lib/studio/media-mode";
 import { cn } from "@/lib/utils";
@@ -464,21 +458,21 @@ export function Stage3Video({
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
+      <section className="panel space-y-5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
               <Film className="size-4 text-primary" />
-              Video Clips & Shot Review
-            </CardTitle>
-            <CardDescription>
+              Video Clips &amp; Shot Review
+            </h2>
+            <p className="text-sm text-muted-foreground">
               Generate per-scene video clips, switch active takes, and assemble
               your Kdenlive export.
-            </CardDescription>
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
+            <Badge variant="outline" className="font-mono tabular-nums">
               {readyClipsCount} / {scenes.length} clips ready
             </Badge>
             {onBackStage && (
@@ -502,26 +496,24 @@ export function Stage3Video({
               Generate All Clips
             </Button>
           </div>
-        </CardHeader>
+        </div>
 
         {scenes.length > 0 && (
-          <CardContent>
-            <ShotStrip
-              scenes={scenes}
-              assetsById={assetsById}
-              selectedSceneId={selectedSceneId}
-              onSelectScene={handleSelectScene}
-            />
-          </CardContent>
+          <ShotStrip
+            scenes={scenes}
+            assetsById={assetsById}
+            selectedSceneId={selectedSceneId}
+            onSelectScene={handleSelectScene}
+          />
         )}
-      </Card>
+      </section>
 
       {scenes.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No scenes yet. Refine or add scenes in Stage 1 first.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Film}
+          title="No scenes yet"
+          description="No scenes yet. Refine or add scenes in Stage 1 first."
+        />
       ) : (
         <div className="space-y-4">
           {scenes.map((scene, index) => {
@@ -601,22 +593,30 @@ export function Stage3Video({
             const isGenerating = generatingSceneId === scene.id;
 
             return (
-              <Card
+              <article
                 key={scene.id}
                 id={`stage3-scene-${scene.id}`}
                 className={cn(
-                  "transition-colors",
+                  "panel space-y-4 p-5 transition-colors",
                   selectedSceneId === scene.id && "border-primary/70",
                 )}
               >
-                <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3.5">
+                  <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="font-mono text-xs">
+                      <Badge
+                        variant="accent"
+                        className="shrink-0 font-mono text-xs tabular-nums"
+                      >
                         Scene {String(index + 1).padStart(2, "0")}
                       </Badge>
-                      <CardTitle className="text-base">{scene.title}</CardTitle>
-                      <Badge variant="secondary" className="text-xs">
+                      <h3 className="truncate text-base font-semibold tracking-tight text-foreground">
+                        {scene.title}
+                      </h3>
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 font-mono text-xs tabular-nums"
+                      >
                         {scene.duration}s
                       </Badge>
                       {latestJob && (
@@ -627,13 +627,13 @@ export function Stage3Video({
                       )}
                     </div>
                     {scene.visualPrompt && (
-                      <CardDescription className="line-clamp-2 text-xs">
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
                         {scene.visualPrompt}
-                      </CardDescription>
+                      </p>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     {latestJob?.status === "FAILED" && (
                       <Button
                         type="button"
@@ -661,76 +661,72 @@ export function Stage3Video({
                       Generate Clip
                     </Button>
                   </div>
-                </CardHeader>
+                </div>
 
-                <CardContent className="space-y-4">
-                  {droppedElements.length > 0 && (
-                    <div className="flex items-start gap-2 rounded-lg border border-amber-700/50 bg-amber-950/30 p-3 text-xs text-amber-200">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" />
-                      <div>
-                        <span className="font-medium text-amber-300">
-                          Dropped elements:
-                        </span>{" "}
-                        {droppedElements.join(", ")} (exceeded{" "}
-                        <code className="font-mono">{capability.modelId}</code>{" "}
-                        reference limit).
-                      </div>
+                {droppedElements.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+                    <div>
+                      <span className="font-medium">Dropped elements:</span>{" "}
+                      {droppedElements.join(", ")} (exceeded{" "}
+                      <code className="font-mono">{capability.modelId}</code>{" "}
+                      reference limit).
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {activeVideo && (
-                    <div className="overflow-hidden rounded-lg border bg-black/50">
-                      <video
-                        key={activeVideo.id}
-                        src={`/api/files/${activeVideo.filePath}`}
-                        controls
-                        playsInline
-                        preload="metadata"
-                        className="max-h-80 w-full object-contain"
-                      />
-                    </div>
-                  )}
+                {activeVideo && (
+                  <div className="overflow-hidden rounded-xl border border-border bg-black">
+                    <video
+                      key={activeVideo.id}
+                      src={`/api/files/${activeVideo.filePath}`}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="max-h-80 w-full object-contain"
+                    />
+                  </div>
+                )}
 
-                  <MediaModePicker
-                    mode={scene.videoMode}
-                    onModeChange={(nextMode) =>
-                      void handleModeChange(scene.id, nextMode)
-                    }
-                    capability={capability}
-                    firstFrame={firstFrameItem}
-                    lastFrame={lastFrameItem}
-                    refImages={refImages}
-                    refVideos={refVideos}
-                    refAudios={refAudios}
-                    onUpload={(slot, files) =>
-                      handleUpload(scene.id, slot, files)
-                    }
-                    onRemove={(slot, idx) =>
-                      void handleRemove(scene, linkedRefIds, slot, idx)
-                    }
-                    uploadingSlot={
-                      uploadingKey?.startsWith(`${scene.id}:`)
-                        ? (uploadingKey.split(":")[1] as MediaType)
-                        : null
-                    }
-                  />
+                <MediaModePicker
+                  mode={scene.videoMode}
+                  onModeChange={(nextMode) =>
+                    void handleModeChange(scene.id, nextMode)
+                  }
+                  capability={capability}
+                  firstFrame={firstFrameItem}
+                  lastFrame={lastFrameItem}
+                  refImages={refImages}
+                  refVideos={refVideos}
+                  refAudios={refAudios}
+                  onUpload={(slot, files) =>
+                    handleUpload(scene.id, slot, files)
+                  }
+                  onRemove={(slot, idx) =>
+                    void handleRemove(scene, linkedRefIds, slot, idx)
+                  }
+                  uploadingSlot={
+                    uploadingKey?.startsWith(`${scene.id}:`)
+                      ? (uploadingKey.split(":")[1] as MediaType)
+                      : null
+                  }
+                />
 
-                  {!modeState.canSubmit && (
-                    <div className="text-xs text-amber-400">
-                      {scene.videoMode === "first_last_frame"
-                        ? "First/last frame mode requires an active First Keyframe (generate one in Stage 2 or switch mode)."
-                        : "Current mode and attached media cannot be combined."}
-                    </div>
-                  )}
+                {!modeState.canSubmit && (
+                  <div className="text-xs text-warning">
+                    {scene.videoMode === "first_last_frame"
+                      ? "First/last frame mode requires an active First Keyframe (generate one in Stage 2 or switch mode)."
+                      : "Current mode and attached media cannot be combined."}
+                  </div>
+                )}
 
-                  <TakeHistory
-                    projectId={project.id}
-                    scene={scene}
-                    takes={sceneTakes}
-                    onRefreshProject={onRefreshProject}
-                  />
-                </CardContent>
-              </Card>
+                <TakeHistory
+                  projectId={project.id}
+                  scene={scene}
+                  takes={sceneTakes}
+                  onRefreshProject={onRefreshProject}
+                />
+              </article>
             );
           })}
         </div>
