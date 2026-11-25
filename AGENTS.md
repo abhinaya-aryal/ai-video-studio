@@ -13,7 +13,8 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/db/` — SQLite via `better-sqlite3` + Drizzle ORM (`${DATA_DIR}/studio.db`) and `drizzle-kit` migrations (`drizzle/`). Stores non-secret project, element, scene, asset, job, custom model, and style preset state.
 - `src/lib/providers/` — Model capability catalog (`catalog.ts`), QwenCloud / DashScope endpoint routing (`qwen-endpoints.ts`), Wan request validation & prompt builder (`wan-payload.ts`), shared provider types (`types.ts`), temporary OSS upload (`qwen-oss.ts`), QwenCloud client (`qwen-client.ts`), OpenAI-compatible text client (`openai-text.ts`), text provider selector (`text.ts`), and provider error mapping (`errors.ts`).
 - `src/lib/refiner/story-refiner.ts` — Zod-validated story & scene refiner (`refineStoryAndScenes`), prompt polisher (`polishPrompt`), fence stripping + one-shot repair retry (`RefinerError`), and case-insensitive element name resolution (`resolveLinkedElementIds`).
-- `src/jobs/` *(planned Task 6)* — `globalThis` singleton background job runner started via `instrumentation.ts`.
+- `src/lib/jobs/` — Background job runner (`runner.ts` with `enqueueJob`, `getRunner()`, `JobRunner` concurrency/backoff/resume) and idempotent local asset persistence (`persist.ts` with `persistResult`).
+- `src/instrumentation.ts` — Next.js `register()` hook that calls `getRunner().resume()` and `getRunner().start()` on the Node.js runtime.
 - `src/export/` *(planned Task 7)* — Kdenlive-ready export builder (`export_kdenlive/` + optional starter `project.kdenlive` + zip archive).
 - `tests/` — Vitest unit and integration suites (`environment: "node"`, `@/*` -> `./src/*`).
 - `docs/superpowers/` — Design spec and implementation plan (read-only reference).
