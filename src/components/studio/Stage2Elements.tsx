@@ -19,18 +19,12 @@ import type {
   ReferenceElement,
   Scene,
 } from "@/db/schema";
+import { EmptyState } from "@/components/EmptyState";
 import { JobStatusBadge } from "@/components/JobStatusBadge";
 import { BatchConfirmDialog } from "@/components/studio/BatchConfirmDialog";
 import { ElementCard } from "@/components/studio/ElementCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -160,8 +154,8 @@ export function Stage2Elements({
       {/* Element Sheets */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-semibold">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
               Element Reference Sheets ({elements.length})
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -172,13 +166,13 @@ export function Stage2Elements({
         </div>
 
         {elements.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No elements in the roster yet. Add elements in Stage 1 first.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={ImageIcon}
+            title="No elements in the roster yet"
+            description="No elements in the roster yet. Add elements in Stage 1 first."
+          />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {elements.map((element) => (
               <ElementCard
                 key={element.id}
@@ -198,8 +192,8 @@ export function Stage2Elements({
       {/* Per-Scene Keyframes */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
               Scene Keyframes ({scenes.length})
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -207,7 +201,7 @@ export function Stage2Elements({
               video synthesis.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               onClick={() => setBatchOpen(true)}
@@ -226,11 +220,11 @@ export function Stage2Elements({
         </div>
 
         {scenes.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No scenes yet. Add scenes in Stage 1 first.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Layers}
+            title="No scenes yet"
+            description="No scenes yet. Add scenes in Stage 1 first."
+          />
         ) : (
           <div className="space-y-4">
             {scenes.map((scene, index) => {
@@ -253,38 +247,44 @@ export function Stage2Elements({
                 lastJob.status !== "FAILED";
 
               return (
-                <Card key={scene.id} className="border-border/70">
-                  <CardHeader className="pb-3">
+                <article key={scene.id} className="panel space-y-4 p-5">
+                  <div className="space-y-1.5 border-b border-border pb-3.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="font-mono">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Badge
+                          variant="accent"
+                          className="shrink-0 font-mono tabular-nums"
+                        >
                           #{String(index + 1).padStart(2, "0")}
                         </Badge>
-                        <CardTitle className="text-base">
+                        <h3 className="truncate text-base font-semibold tracking-tight text-foreground">
                           {scene.title}
-                        </CardTitle>
+                        </h3>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="outline" className="text-[11px]">
                           {scene.videoMode}
                         </Badge>
-                        <Badge variant="outline" className="text-[11px]">
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-[11px] tabular-nums"
+                        >
                           {scene.duration}s
                         </Badge>
                       </div>
                     </div>
                     {scene.visualPrompt && (
-                      <CardDescription className="line-clamp-2 text-xs">
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
                         {scene.visualPrompt}
-                      </CardDescription>
+                      </p>
                     )}
-                  </CardHeader>
+                  </div>
 
-                  <CardContent className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {/* First Keyframe */}
-                    <div className="space-y-2 rounded-lg border p-3">
+                    <div className="space-y-2.5 rounded-xl border border-border bg-surface-2/30 p-3.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium">
+                        <span className="text-xs font-medium text-foreground">
                           First Keyframe
                         </span>
                         {firstJob && (
@@ -308,7 +308,7 @@ export function Stage2Elements({
                         )}
                       </div>
 
-                      <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted/40">
+                      <div className="media-tile relative aspect-video w-full overflow-hidden">
                         {firstAsset ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -317,8 +317,8 @@ export function Stage2Elements({
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
-                            <ImageIcon className="size-6 opacity-40" />
+                          <div className="flex h-full flex-col items-center justify-center gap-1 text-xs text-subtle-foreground">
+                            <ImageIcon className="size-6 opacity-50" />
                             <span>No first keyframe</span>
                           </div>
                         )}
@@ -349,12 +349,12 @@ export function Stage2Elements({
                     </div>
 
                     {/* Last Keyframe */}
-                    <div className="space-y-2 rounded-lg border p-3">
+                    <div className="space-y-2.5 rounded-xl border border-border bg-surface-2/30 p-3.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium">
+                        <span className="text-xs font-medium text-foreground">
                           Last Keyframe
                           {scene.videoMode !== "first_last_frame" && (
-                            <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
+                            <span className="ml-1.5 text-[11px] font-normal text-subtle-foreground">
                               (optional)
                             </span>
                           )}
@@ -380,7 +380,7 @@ export function Stage2Elements({
                         )}
                       </div>
 
-                      <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted/40">
+                      <div className="media-tile relative aspect-video w-full overflow-hidden">
                         {lastAsset ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -389,8 +389,8 @@ export function Stage2Elements({
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
-                            <ImageIcon className="size-6 opacity-40" />
+                          <div className="flex h-full flex-col items-center justify-center gap-1 text-xs text-subtle-foreground">
+                            <ImageIcon className="size-6 opacity-50" />
                             <span>No last keyframe</span>
                           </div>
                         )}
@@ -416,8 +416,8 @@ export function Stage2Elements({
                           : "Generate Last Frame"}
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </article>
               );
             })}
           </div>
@@ -425,38 +425,36 @@ export function Stage2Elements({
       </section>
 
       {/* Collapsed Optional TTS Section */}
-      <Card>
-        <CardHeader className="py-3">
-          <button
-            type="button"
-            onClick={() => setTtsOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between text-left"
-          >
-            <div className="flex items-center gap-2">
-              {ttsOpen ? (
-                <ChevronDown className="size-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="size-4 text-muted-foreground" />
-              )}
-              <Volume2 className="size-4 text-muted-foreground" />
-              <div>
-                <div className="text-sm font-semibold">
-                  Optional Voiceover (TTS)
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Generate standalone voiceover tracks for narration or dialogue
-                  scenes.
-                </div>
+      <section className="panel overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setTtsOpen((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-surface-2/40 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <div className="flex min-w-0 items-center gap-2.5">
+            {ttsOpen ? (
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            )}
+            <Volume2 className="size-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-foreground">
+                Optional Voiceover (TTS)
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                Generate standalone voiceover tracks for narration or dialogue
+                scenes.
               </div>
             </div>
-            <Badge variant="outline" className="text-xs">
-              {ttsOpen ? "Hide" : "Expand"}
-            </Badge>
-          </button>
-        </CardHeader>
+          </div>
+          <Badge variant="outline" className="shrink-0 text-xs">
+            {ttsOpen ? "Hide" : "Expand"}
+          </Badge>
+        </button>
 
         {ttsOpen && (
-          <CardContent className="space-y-4 border-t pt-4">
+          <div className="space-y-4 border-t border-border p-5">
             {scenes.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 No scenes available.
@@ -477,17 +475,20 @@ export function Stage2Elements({
                 return (
                   <div
                     key={scene.id}
-                    className="space-y-2.5 rounded-lg border p-3"
+                    className="space-y-2.5 rounded-xl border border-border bg-surface-2/30 p-3.5"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="font-mono text-xs">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="shrink-0 font-mono text-xs tabular-nums"
+                        >
                           #{String(index + 1).padStart(2, "0")}
                         </Badge>
-                        <span className="text-sm font-medium">
+                        <span className="truncate text-sm font-medium text-foreground">
                           {scene.title}
                         </span>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="shrink-0 text-[10px]">
                           {scene.audioMode}
                         </Badge>
                       </div>
@@ -568,9 +569,9 @@ export function Stage2Elements({
                 );
               })
             )}
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </section>
 
       <BatchConfirmDialog
         open={batchOpen}
