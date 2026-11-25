@@ -58,6 +58,17 @@ export interface CompileScenePromptInput {
   taggedElements?: TaggedElement[];
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasTagReference(text: string, tag: string): boolean {
+  const escaped = escapeRegExp(tag.trim());
+  if (!escaped) return false;
+  const pattern = new RegExp(`(?:^|[^\\w])${escaped}(?![\\w])`);
+  return pattern.test(text);
+}
+
 /**
  * Compile a scene's visual prompt, camera cues, style bible, `@Image N` element tags,
  * and audio mode instructions into a final Wan prompt and native-audio boolean.
@@ -74,7 +85,7 @@ export function compileScenePrompt(input: CompileScenePromptInput): {
 
   if (input.taggedElements && input.taggedElements.length > 0) {
     const missingTags = input.taggedElements.filter(
-      (el) => !visual.includes(el.tag),
+      (el) => !hasTagReference(visual, el.tag),
     );
     if (missingTags.length > 0) {
       const formatted = missingTags

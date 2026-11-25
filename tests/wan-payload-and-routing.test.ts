@@ -371,6 +371,22 @@ describe("Prompt compilation & reference element capping", () => {
     expect(narration.prompt).toContain("The city never truly slept.");
   });
 
+  it("matches tagged element references on token boundaries so @Image 10 does not hide @Image 1", () => {
+    const compiled = compileScenePrompt({
+      visualPrompt: "@Image 10 illuminates the rain-soaked alley.",
+      audioMode: "silent",
+      taggedElements: [
+        { tag: "@Image 1", name: "Kai", kind: "character" },
+        { tag: "@Image 10", name: "Neon Sign", kind: "location" },
+      ],
+    });
+
+    expect(compiled.prompt).toMatch(/@Image 1(?!\d)/);
+    expect(compiled.prompt.match(/@Image 10\b/g)).toHaveLength(1);
+    expect(compiled.prompt).toContain("@Image 1 (Kai, character)");
+    expect(compiled.prompt).not.toContain("@Image 10 (Neon Sign, location)");
+  });
+
   it("caps reference elements prioritizing characters, then props, then locations", () => {
     const characters: ElementRef[] = Array.from({ length: 8 }, (_, i) => ({
       id: `char-${i + 1}`,
