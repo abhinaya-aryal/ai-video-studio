@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Clapperboard,
   Film,
   Layers,
   Loader2,
@@ -22,6 +21,7 @@ import {
   Stage1Story,
 } from "@/components/studio/Stage1Story";
 import { Stage2Elements } from "@/components/studio/Stage2Elements";
+import { Stage3Video } from "@/components/studio/Stage3Video";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -248,27 +248,17 @@ export function StageTabs({ projectId }: StageTabsProps) {
         </TabsContent>
 
         <TabsContent value="stage3">
-          <Card className="border-dashed">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clapperboard className="size-5 text-muted-foreground" />
-                Stage 3: Video & Kdenlive Export
-              </CardTitle>
-              <CardDescription>
-                Per-scene video generation, batch clip rendering, clip review,
-                and Kdenlive export are implemented in Task 11.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setActiveTab("stage2")}
-              >
-                Back to Stage 2
-              </Button>
-            </CardContent>
-          </Card>
+          <Stage3Video
+            project={project}
+            elements={elements}
+            scenes={scenes}
+            assets={assets}
+            jobs={jobs}
+            onRefreshProject={loadProject}
+            onRefreshJobs={refreshJobs}
+            onRetryJob={retryJob}
+            onBackStage={() => setActiveTab("stage2")}
+          />
         </TabsContent>
       </Tabs>
     </div>

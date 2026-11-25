@@ -18,8 +18,10 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/lib/export/kdenlive.ts` — Kdenlive-ready export builder (`rebuildKdenliveExport`, `writeKdenliveProject`, `streamExportZip`) generating `export_kdenlive/`, starter `project.kdenlive`, `story.md`, and ZIP archive stream.
 - `src/lib/studio/scene-request.ts` — Scene video & keyframe request builders (`buildSceneVideoRequest`, `buildSceneKeyframeRequest`) applying kind-priority element capping (`@Image N`) and `first_last_frame` keyframe-only rules.
 - `src/lib/studio/media-mode.ts` — Pure `mediaModeState()` helper driving UI slot disabling, tooltip reasons, and submit readiness across `text_to_video`, `first_last_frame`, and `omni_reference`.
-- `src/components/` & `src/hooks/` — Client UI components (`NavSidebar`, `JobStatusBadge`, `AudioModeSelect`, `MediaModePicker`, shadcn/ui primitives) and `useJobs` 3s polling hook.
-- `src/lib/api/route-helpers.ts` — Shared API route JSON parsing, error mapping (`handleRouteError`), and project/scene/element lookup helpers.
+- `src/components/` — Client UI components (`NavSidebar`, `JobStatusBadge`, `AudioModeSelect`, `MediaModePicker`, shadcn/ui primitives).
+- `src/components/studio/` — Guided 3-stage Storyboard Studio UI (`StageTabs`, `Stage1Story`, `SceneCard`, `Stage2Elements`, `ElementCard`, `Stage3Video`, `ShotStrip`, `TakeHistory`, `ExportPanel`, `BatchConfirmDialog`).
+- `src/hooks/` — Client React hooks (`useJobs` 3s job polling & retry helper).
+- `src/lib/api/` — Shared API route JSON parsing, error mapping (`handleRouteError`), and project/scene/element lookup helpers (`route-helpers.ts`).
 - `tests/` — Vitest unit and integration suites (`environment: "node"`, `@/*` -> `./src/*`).
 - `docs/superpowers/` — Design spec and implementation plan (read-only reference).
 - Runtime directories (gitignored): `${DATA_DIR}` (`./data`) and `${PROJECTS_DIR}` (`./projects/<slug>/`).

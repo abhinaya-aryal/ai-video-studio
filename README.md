@@ -34,9 +34,13 @@ Configure `QWEN_API_KEY`, `QWEN_KEY_TYPE`, and `QWEN_REGION` in `.env.local`:
 - **Standard DashScope (`sk-...`):** Standard keys route to DashScope regional endpoints and optionally accept `QWEN_WORKSPACE_ID`.
 - **Custom OpenAI-Compatible Text Provider:** Set `TEXT_PROVIDER=openai_compat` along with `OPENAI_COMPAT_BASE_URL`, `OPENAI_COMPAT_MODEL`, and optional `OPENAI_COMPAT_API_KEY` to use a local or third-party OpenAI-compatible text endpoint for script/prompt refinement.
 
-## Studio Pages
+## Studio Pages & Workflow
 
 - **Projects Dashboard (`/`):** View existing projects, create new projects with a built-in or custom style preset, and jump to Quick Clip or Settings.
+- **Storyboard Studio (`/projects/[id]`):** Guided 3-stage production pipeline:
+  1. **Stage 1 — Story & Scenes:** Enter a rough idea, apply a Style Bible preset, run AI Story & Scene Refinement (`Refine Story & Scenes`), edit/reorder/add scenes, link reference elements, and adjust audio/video modes.
+  2. **Stage 2 — Elements & Keyframes:** Generate or upload consistent reference element sheets (characters, props, locations), render first/last keyframes per scene or in batch (`Generate All Keyframes`), and optionally synthesize voiceover audio via Qwen TTS.
+  3. **Stage 3 — Video, Shot Strip & Export:** Review scenes in the ordered `ShotStrip`, configure `MediaModePicker` (`text_to_video`, `first_last_frame`, `omni_reference`), generate per-scene or batch video clips (`Generate All Clips`), switch active takes in `TakeHistory`, and rebuild/download Kdenlive exports.
 - **Quick Clip (`/quick-clip`):** Direct single-shot Wan video generation without creating a full project. Supports prompt polishing, audio mode selection, text-to-video, first/last frame, and omni-reference uploads with live job polling and inline video preview.
 - **Settings (`/settings`):** Inspect masked provider keys, key type, region, resolved base URL, and key/URL mismatch warnings; test Qwen and OpenAI-compatible connections; register custom models; and manage style presets.
 

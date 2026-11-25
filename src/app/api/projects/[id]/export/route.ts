@@ -14,7 +14,7 @@ export async function POST(_req: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     requireProject(id);
-    const result = rebuildKdenliveExport(id);
+    const result = await rebuildKdenliveExport(id);
     return apiOk({ export: result });
   } catch (err) {
     return handleRouteError(err);
@@ -25,7 +25,7 @@ export async function GET(_req: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     const project = requireProject(id);
-    rebuildKdenliveExport(id);
+    await rebuildKdenliveExport(id);
     const stream = streamExportZip(id);
 
     return new Response(stream, {
