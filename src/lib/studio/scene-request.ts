@@ -54,40 +54,59 @@ function defaultGetAssetFilePath(assetId: string): string | undefined {
   return row?.filePath;
 }
 
+const IMAGE_SIZE_BY_RATIO: Record<string, string> = {
+  "16:9": "1280*720",
+  "9:16": "720*1280",
+  "1:1": "1024*1024",
+};
+
+/** Map a project aspect ratio string (e.g. `16:9`, `9:16`, `1:1`) to a Wan image size. */
+export function aspectRatioToImageSize(aspectRatio: string): string {
+  return IMAGE_SIZE_BY_RATIO[aspectRatio.trim()] ?? "1280*720";
+}
+
+/**
+ * Prepare an image path (project-relative or already a URL/data/oss URI) for a
+ * Qwen/Wan API request using Base64 or temporary DashScope OSS upload.
+ */
+export async function prepareProjectImagePath(
+  relOrUrl: string,
+  modelId: string,
+  imageCountInRequest: number,
+): Promise<string> {
+  const trimmed = relOrUrl.trim();
+  if (
+    trimmed.startsWith("oss://") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("data:")
+  ) {
+    return trimmed;
+  }
+
+  const cfg = getConfig();
+  const apiKey = cfg.qwen.apiKey?.trim();
+  if (!apiKey) {
+    throw new ProviderHttpError(
+      mapProviderError("InvalidApiKey", 401),
+      401,
+      "QWEN_API_KEY is missing in .env.local",
+    );
+  }
+
+  const absPath = resolveInsideProjects(trimmed);
+  return prepareImageMedia({
+    baseUrl: resolveQwenBaseUrl(cfg.qwen),
+    apiKey,
+    model: modelId,
+    filePath: absPath,
+    imageCountInRequest,
+  });
+}
+
 function createDefaultPrepareImage(modelId: string) {
-  return async (
-    relOrAbsPath: string,
-    imageCountInRequest: number,
-  ): Promise<string> => {
-    const trimmed = relOrAbsPath.trim();
-    if (
-      trimmed.startsWith("oss://") ||
-      trimmed.startsWith("http://") ||
-      trimmed.startsWith("https://") ||
-      trimmed.startsWith("data:")
-    ) {
-      return trimmed;
-    }
-
-    const cfg = getConfig();
-    const apiKey = cfg.qwen.apiKey?.trim();
-    if (!apiKey) {
-      throw new ProviderHttpError(
-        mapProviderError("InvalidApiKey", 401),
-        401,
-        "QWEN_API_KEY is missing in .env.local",
-      );
-    }
-
-    const absPath = resolveInsideProjects(trimmed);
-    return prepareImageMedia({
-      baseUrl: resolveQwenBaseUrl(cfg.qwen),
-      apiKey,
-      model: modelId,
-      filePath: absPath,
-      imageCountInRequest,
-    });
-  };
+  return (relOrAbsPath: string, imageCountInRequest: number) =>
+    prepareProjectImagePath(relOrAbsPath, modelId, imageCountInRequest);
 }
 
 function parseLinkedElementIds(json: string): string[] {
@@ -277,13 +296,7 @@ export async function buildSceneKeyframeRequest(
   });
 
   const needsOssHeader = referenceImages.some((url) => url.startsWith("oss://"));
-  const size =
-    options.size ??
-    (project.aspectRatio === "9:16"
-      ? "720*1280"
-      : project.aspectRatio === "1:1"
-        ? "1024*1024"
-        : "1280*720");
+  const size = options.size ?? aspectRatioToImageSize(project.aspectRatio);
 
   return {
     payload: {

@@ -12,18 +12,14 @@ import {
   type ReferenceElement,
   type Scene,
 } from "@/db";
-import { getConfig } from "@/lib/config";
 import { getRunner } from "@/lib/jobs/runner";
 import {
   ProviderHttpError,
-  mapProviderError,
   sanitizeErrorText,
 } from "@/lib/providers/errors";
-import { resolveQwenBaseUrl } from "@/lib/providers/qwen-endpoints";
-import { prepareImageMedia } from "@/lib/providers/qwen-oss";
 import { UnknownModelError, WanValidationError } from "@/lib/providers/types";
 import { RefinerError } from "@/lib/refiner/story-refiner";
-import { UnsafePathError, resolveInsideProjects } from "@/lib/storage/paths";
+import { UnsafePathError } from "@/lib/storage/paths";
 
 /** Structured HTTP error thrown by API route helpers and handlers. */
 export class RouteError extends Error {
@@ -153,54 +149,10 @@ export function getCustomModelRows(): CustomModel[] {
   return getDb().select().from(customModels).all();
 }
 
-const IMAGE_SIZE_BY_RATIO: Record<string, string> = {
-  "16:9": "1280*720",
-  "9:16": "720*1280",
-  "1:1": "1024*1024",
-};
-
-export function aspectRatioToImageSize(aspectRatio: string): string {
-  return IMAGE_SIZE_BY_RATIO[aspectRatio.trim()] ?? "1280*720";
-}
-
-/**
- * Prepare an image path (project-relative or already a URL/data/oss URI) for a
- * Qwen/Wan API request using Base64 or temporary DashScope OSS upload.
- */
-export async function prepareProjectImagePath(
-  relOrUrl: string,
-  modelId: string,
-  imageCountInRequest: number,
-): Promise<string> {
-  const trimmed = relOrUrl.trim();
-  if (
-    trimmed.startsWith("oss://") ||
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://") ||
-    trimmed.startsWith("data:")
-  ) {
-    return trimmed;
-  }
-
-  const cfg = getConfig();
-  const apiKey = cfg.qwen.apiKey?.trim();
-  if (!apiKey) {
-    throw new ProviderHttpError(
-      mapProviderError("InvalidApiKey", 401),
-      401,
-      "QWEN_API_KEY is missing in .env.local",
-    );
-  }
-
-  const absPath = resolveInsideProjects(trimmed);
-  return prepareImageMedia({
-    baseUrl: resolveQwenBaseUrl(cfg.qwen),
-    apiKey,
-    model: modelId,
-    filePath: absPath,
-    imageCountInRequest,
-  });
-}
+export {
+  aspectRatioToImageSize,
+  prepareProjectImagePath,
+} from "@/lib/studio/scene-request";
 
 export function kickRunner(): void {
   void getRunner().tick();
