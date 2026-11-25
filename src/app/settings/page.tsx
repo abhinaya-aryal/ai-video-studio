@@ -16,6 +16,7 @@ import type {
   CustomModelModality,
   StylePreset,
 } from "@/db/schema";
+import type { QwenKeyUrlCheck } from "@/lib/providers/qwen-endpoints";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,10 +52,7 @@ interface SettingsStatusResponse {
       tts: string;
       text: string;
     };
-    keyUrlCheck: {
-      ok: boolean;
-      reason?: string;
-    };
+    keyUrlCheck: QwenKeyUrlCheck;
   } | null;
   textProvider: string | null;
   openaiCompat: {
@@ -451,7 +449,7 @@ export default function SettingsPage() {
                 <div className="flex items-start gap-2 rounded-md border border-red-800/60 bg-red-950/30 p-3 text-xs text-red-200">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0 text-red-400" />
                   <span>
-                    Key / URL mismatch: {status.qwen.keyUrlCheck.reason}
+                    Key / URL mismatch: {status.qwen.keyUrlCheck.warning}
                   </span>
                 </div>
               )}

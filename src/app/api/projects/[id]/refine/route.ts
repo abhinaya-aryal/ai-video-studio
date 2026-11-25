@@ -21,6 +21,7 @@ const RefineProjectSchema = z
     roughIdea: z.string().optional(),
     styleBible: z.string().optional(),
     targetSceneCount: z.number().int().min(1).max(30).optional(),
+    confirm: z.boolean().optional(),
   })
   .default({});
 
@@ -49,6 +50,29 @@ export async function POST(req: Request, context: RouteContext) {
       );
     }
 
+    const db = getDb();
+    const existingSceneIds = db
+      .select({ id: scenes.id })
+      .from(scenes)
+      .where(eq(scenes.projectId, id))
+      .all();
+    const existingElementIds = db
+      .select({ id: referenceElements.id })
+      .from(referenceElements)
+      .where(eq(referenceElements.projectId, id))
+      .all();
+
+    if (
+      (existingSceneIds.length > 0 || existingElementIds.length > 0) &&
+      input.confirm !== true
+    ) {
+      throw new RouteError(
+        "CONFIRM_REQUIRED",
+        "Re-running Auto-Refine replaces every scene and reference element, which orphans generated keyframes, clips, and takes. Send confirm: true to rebuild the storyboard.",
+        409,
+      );
+    }
+
     const styleBible = input.styleBible ?? project.styleBible;
     const chat = getTextChat();
     const refined = await refineStoryAndScenes({
@@ -58,7 +82,6 @@ export async function POST(req: Request, context: RouteContext) {
       chat,
     });
 
-    const db = getDb();
     const now = Date.now();
 
     const savedElements = refined.elements.map((el) => ({

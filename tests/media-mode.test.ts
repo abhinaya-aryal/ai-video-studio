@@ -44,6 +44,47 @@ describe("mediaModeState", () => {
     expect(state.canSubmit).toBe(true);
   });
 
+  it("ignores linked reference media in modes that do not send it", () => {
+    const cap = getModelCapabilities("wan3.0-video");
+    const withLinkedElements = {
+      firstFrame: true,
+      lastFrame: false,
+      refImages: 2,
+      refVideos: 0,
+      refAudios: 0,
+    };
+
+    const textState = mediaModeState(
+      "text_to_video",
+      cap,
+      withLinkedElements,
+    );
+    expect(textState.canSubmit).toBe(true);
+
+    const frameState = mediaModeState(
+      "first_last_frame",
+      cap,
+      withLinkedElements,
+    );
+    expect(frameState.canSubmit).toBe(true);
+    expect(frameState.reasons.first_frame ?? "").not.toContain(
+      "cannot be combined",
+    );
+
+    const omniState = mediaModeState(
+      "omni_reference",
+      cap,
+      withLinkedElements,
+    );
+    expect(omniState.canSubmit).toBe(true);
+
+    const noFirstFrame = mediaModeState("first_last_frame", cap, {
+      ...withLinkedElements,
+      firstFrame: false,
+    });
+    expect(noFirstFrame.canSubmit).toBe(false);
+  });
+
   it("disables frame slots for wan2.7-t2v based on model capability", () => {
     const cap = getModelCapabilities("wan2.7-t2v");
     const state = mediaModeState("first_last_frame", cap, {

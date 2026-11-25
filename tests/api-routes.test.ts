@@ -8,6 +8,7 @@ import { GET as getFile } from "@/app/api/files/[...path]/route";
 import { POST as generateBatch } from "@/app/api/generate/batch/route";
 import { POST as generateVideo } from "@/app/api/generate/video/route";
 import { POST as createProject } from "@/app/api/projects/route";
+import { POST as refineProject } from "@/app/api/projects/[id]/refine/route";
 import { GET as getSettingsStatus } from "@/app/api/settings/status/route";
 
 describe("API Route Handlers", () => {
@@ -60,6 +61,57 @@ describe("API Route Handlers", () => {
       configured: boolean;
     };
     expect(unconfiguredJson.configured).toBe(false);
+  });
+
+  it("POST /api/projects/[id]/refine requires confirmation before replacing an existing storyboard", async () => {
+    const db = getDb();
+    const now = Date.now();
+    db.insert(projects)
+      .values({
+        id: "proj-refine",
+        slug: "proj-refine",
+        title: "Refine Project",
+        roughIdea: "A detective in neon rain.",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    db.insert(scenes)
+      .values({
+        id: "sc-refine",
+        projectId: "proj-refine",
+        orderIndex: 0,
+        slug: "01-rain",
+        title: "Rain",
+        visualPrompt: "Neon rain",
+        duration: 5,
+        videoMode: "text_to_video",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    const req = new Request("http://localhost/api/projects/proj-refine/refine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roughIdea: "A new idea" }),
+    });
+
+    const res = await refineProject(req, {
+      params: Promise.resolve({ id: "proj-refine" }),
+    });
+
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as {
+      error: { code: string; message: string };
+    };
+    expect(json.error.code).toBe("CONFIRM_REQUIRED");
+    expect(json.error.message.toLowerCase()).toContain("confirm");
+
+    // The existing storyboard must survive an unconfirmed refine attempt.
+    const remainingScenes = db.select().from(scenes).all();
+    expect(remainingScenes).toHaveLength(1);
+    expect(remainingScenes[0].id).toBe("sc-refine");
   });
 
   it("POST /api/projects creates the DB row and project directory", async () => {

@@ -16,7 +16,10 @@ import {
   mapProviderError,
 } from "@/lib/providers/errors";
 import { resolveQwenBaseUrl } from "@/lib/providers/qwen-endpoints";
-import { prepareImageMedia } from "@/lib/providers/qwen-oss";
+import {
+  prepareImageMedia,
+  uploadToDashScopeOss,
+} from "@/lib/providers/qwen-oss";
 import {
   type MediaItem,
   type ModelCapability,
@@ -30,14 +33,25 @@ import {
 } from "@/lib/providers/wan-payload";
 import { resolveInsideProjects } from "@/lib/storage/paths";
 
+/** Per-scene media uploaded in Stage 3 (project-relative paths or URLs). */
+export interface SceneMediaUploads {
+  firstFrame?: string;
+  lastFrame?: string;
+  refImages?: string[];
+  refVideos?: string[];
+  refAudios?: string[];
+}
+
 export interface SceneVideoRequestDeps {
   prepareImage?: (
     filePath: string,
     imageCountInRequest: number,
   ) => Promise<string>;
+  prepareMedia?: (filePath: string) => Promise<string>;
   getAssetFilePath?: (
     assetId: string,
   ) => string | null | undefined | Promise<string | null | undefined>;
+  uploads?: SceneMediaUploads;
 }
 
 export interface BuiltSceneVideoRequest {
@@ -109,6 +123,47 @@ function createDefaultPrepareImage(modelId: string) {
     prepareProjectImagePath(relOrAbsPath, modelId, imageCountInRequest);
 }
 
+/**
+ * Prepare a non-image media path (video/audio) for a Wan request. Video and
+ * audio always go through temporary DashScope OSS, so local project paths are
+ * uploaded while existing URLs are passed through unchanged.
+ */
+export async function prepareProjectMediaPath(
+  relOrUrl: string,
+  modelId: string,
+): Promise<string> {
+  const trimmed = relOrUrl.trim();
+  if (
+    trimmed.startsWith("oss://") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("data:")
+  ) {
+    return trimmed;
+  }
+
+  const cfg = getConfig();
+  const apiKey = cfg.qwen.apiKey?.trim();
+  if (!apiKey) {
+    throw new ProviderHttpError(
+      mapProviderError("InvalidApiKey", 401),
+      401,
+      "QWEN_API_KEY is missing in .env.local",
+    );
+  }
+
+  return uploadToDashScopeOss({
+    baseUrl: resolveQwenBaseUrl(cfg.qwen),
+    apiKey,
+    model: modelId,
+    filePath: resolveInsideProjects(trimmed),
+  });
+}
+
+function createDefaultPrepareMedia(modelId: string) {
+  return (relOrAbsPath: string) => prepareProjectMediaPath(relOrAbsPath, modelId);
+}
+
 function parseLinkedElementIds(json: string): string[] {
   try {
     const parsed = JSON.parse(json) as unknown;
@@ -136,26 +191,35 @@ export async function buildSceneVideoRequest(
 ): Promise<BuiltSceneVideoRequest> {
   const prepareImage =
     deps.prepareImage ?? createDefaultPrepareImage(cap.modelId);
+  const prepareMedia =
+    deps.prepareMedia ?? createDefaultPrepareMedia(cap.modelId);
   const getAssetFilePath = deps.getAssetFilePath ?? defaultGetAssetFilePath;
+  const uploads = deps.uploads ?? {};
 
   let media: MediaItem[] = [];
   let droppedElements: string[] = [];
   let taggedElements: TaggedElement[] | undefined;
 
   if (scene.videoMode === "first_last_frame") {
-    const firstPath = scene.activeKeyframeFirstAssetId
-      ? await getAssetFilePath(scene.activeKeyframeFirstAssetId)
-      : undefined;
+    const uploadedFirst = uploads.firstFrame?.trim() || undefined;
+    const firstPath =
+      uploadedFirst ??
+      (scene.activeKeyframeFirstAssetId
+        ? await getAssetFilePath(scene.activeKeyframeFirstAssetId)
+        : undefined);
 
     if (!firstPath) {
       throw new WanValidationError(
-        `Scene "${scene.title}" is in first_last_frame mode but has no keyframe asset. Generate a keyframe in Stage 2 first.`,
+        `Scene "${scene.title}" is in first_last_frame mode but has no keyframe asset. Generate a keyframe in Stage 2 first, or upload a first frame.`,
       );
     }
 
-    const lastPath = scene.activeKeyframeLastAssetId
-      ? await getAssetFilePath(scene.activeKeyframeLastAssetId)
-      : undefined;
+    const uploadedLast = uploads.lastFrame?.trim() || undefined;
+    const lastPath =
+      uploadedLast ??
+      (scene.activeKeyframeLastAssetId
+        ? await getAssetFilePath(scene.activeKeyframeLastAssetId)
+        : undefined);
 
     const imageCount = lastPath ? 2 : 1;
     const firstUrl = await prepareImage(firstPath, imageCount);
@@ -188,13 +252,56 @@ export async function buildSceneVideoRequest(
       kind: el.kind,
     }));
 
-    const preparedUrls = await Promise.all(
-      kept.map((el) => prepareImage(el.activeImagePath, kept.length)),
-    );
+    // Uploaded references fill the remaining slots after linked elements, so
+    // the kind-priority cap and `@Image N` order stay stable.
+    const uploadedImages = (uploads.refImages ?? [])
+      .map((path) => path.trim())
+      .filter(Boolean)
+      .slice(0, Math.max(0, maxRefImages - kept.length));
+    const imageCount = kept.length + uploadedImages.length;
+
+    const preparedUrls = await Promise.all([
+      ...kept.map((el) => prepareImage(el.activeImagePath, imageCount)),
+      ...uploadedImages.map((path) => prepareImage(path, imageCount)),
+    ]);
     media = preparedUrls.map((url) => ({
       type: "reference_image",
       url,
     }));
+
+    const maxVideos = cap.allowedMediaTypes.includes("reference_video")
+      ? (cap.maxCounts.reference_video ?? 0)
+      : 0;
+    const uploadedVideos = (uploads.refVideos ?? [])
+      .map((path) => path.trim())
+      .filter(Boolean)
+      .slice(0, maxVideos);
+    const preparedVideos = await Promise.all(
+      uploadedVideos.map((path) => prepareMedia(path)),
+    );
+    media.push(
+      ...preparedVideos.map((url) => ({
+        type: "reference_video" as const,
+        url,
+      })),
+    );
+
+    const maxAudios = cap.allowedMediaTypes.includes("reference_audio")
+      ? (cap.maxCounts.reference_audio ?? 0)
+      : 0;
+    const uploadedAudios = (uploads.refAudios ?? [])
+      .map((path) => path.trim())
+      .filter(Boolean)
+      .slice(0, maxAudios);
+    const preparedAudios = await Promise.all(
+      uploadedAudios.map((path) => prepareMedia(path)),
+    );
+    media.push(
+      ...preparedAudios.map((url) => ({
+        type: "reference_audio" as const,
+        url,
+      })),
+    );
   }
 
   const { prompt, audio } = compileScenePrompt({

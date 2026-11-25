@@ -63,10 +63,12 @@ function extractHostname(rawUrl: string): string {
  * Verify that the API key prefix matches the resolved endpoint host.
  * Token Plan keys (`sk-sp-*`) require `token-plan.<region>.maas.aliyuncs.com`.
  */
+export type QwenKeyUrlCheck = { ok: true } | { ok: false; warning: string };
+
 export function checkQwenKeyUrl(
   apiKey: string,
   baseUrl: string,
-): { ok: true } | { ok: false; warning: string } {
+): QwenKeyUrlCheck {
   const key = apiKey.trim();
   const url = baseUrl.trim();
   if (!key) {

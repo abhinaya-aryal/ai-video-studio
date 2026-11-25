@@ -10,6 +10,7 @@ import {
   parseJsonBody,
   requireProject,
 } from "@/lib/api/route-helpers";
+import { SceneUploadsSchema } from "@/lib/api/scene-uploads";
 import { getConfig } from "@/lib/config";
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
@@ -24,6 +25,7 @@ const BatchGenerateSchema = z.object({
   sceneIds: z.array(z.string().trim().min(1)).min(1),
   confirm: z.boolean(),
   modelId: z.string().trim().min(1).optional(),
+  uploadsByScene: z.record(z.string(), SceneUploadsSchema).optional(),
 });
 
 export async function POST(req: Request) {
@@ -105,6 +107,7 @@ export async function POST(req: Request) {
           elements,
           project,
           cap,
+          { uploads: input.uploadsByScene?.[scene.id] },
         );
         if (droppedElements.length > 0) {
           droppedElementsByScene[scene.id] = droppedElements;

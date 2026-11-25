@@ -163,6 +163,119 @@ describe("buildSceneVideoRequest", () => {
     ).toBe(false);
   });
 
+  it("uses an uploaded first frame when first_last_frame mode has no keyframe asset", async () => {
+    const scene = makeScene({
+      videoMode: "first_last_frame",
+      activeKeyframeFirstAssetId: null,
+      activeKeyframeLastAssetId: null,
+    });
+
+    const { payload } = await buildSceneVideoRequest(
+      scene,
+      [],
+      makeProject(),
+      wan3Cap,
+      {
+        uploads: { firstFrame: "test-project/elements/up-first.png" },
+        prepareImage: async (filePath) => `prepared:${filePath}`,
+      },
+    );
+
+    const body = payload.body as {
+      input: { media?: Array<{ type: string; url: string }> };
+    };
+    expect(body.input.media).toEqual([
+      { type: "first_frame", url: "prepared:test-project/elements/up-first.png" },
+    ]);
+  });
+
+  it("appends uploaded reference media in omni_reference mode and prepares video/audio through OSS", async () => {
+    const elements = [makeElement("char-1", "character", "Kira")];
+    const scene = makeScene({
+      videoMode: "omni_reference",
+      linkedElementIdsJson: JSON.stringify(["char-1"]),
+    });
+
+    const { payload } = await buildSceneVideoRequest(
+      scene,
+      elements,
+      makeProject(),
+      wan3Cap,
+      {
+        prepareImage: async (filePath) => `img:${filePath}`,
+        prepareMedia: async (filePath) => `media:${filePath}`,
+        uploads: {
+          refImages: ["test-project/elements/up-ref.png"],
+          refVideos: ["test-project/elements/up-video.mp4"],
+          refAudios: ["test-project/elements/up-audio.mp3"],
+        },
+      },
+    );
+
+    const body = payload.body as {
+      input: {
+        prompt: string;
+        media?: Array<{ type: string; url: string }>;
+      };
+    };
+    expect(body.input.media).toEqual([
+      {
+        type: "reference_image",
+        url: "img:test-project/elements/char-1.png",
+      },
+      {
+        type: "reference_image",
+        url: "img:test-project/elements/up-ref.png",
+      },
+      {
+        type: "reference_video",
+        url: "media:test-project/elements/up-video.mp4",
+      },
+      {
+        type: "reference_audio",
+        url: "media:test-project/elements/up-audio.mp3",
+      },
+    ]);
+    expect(body.input.prompt).toContain("@Image 1");
+  });
+
+  it("caps uploaded reference images to the remaining model limit", async () => {
+    const elements = Array.from({ length: 9 }, (_, i) =>
+      makeElement(`char-${i + 1}`, "character", `Character ${i + 1}`),
+    );
+    const scene = makeScene({
+      videoMode: "omni_reference",
+      linkedElementIdsJson: JSON.stringify(elements.map((el) => el.id)),
+    });
+
+    const { payload } = await buildSceneVideoRequest(
+      scene,
+      elements,
+      makeProject(),
+      wan3Cap,
+      {
+        prepareImage: async (filePath) => `img:${filePath}`,
+        uploads: {
+          refImages: [
+            "test-project/elements/up-1.png",
+            "test-project/elements/up-2.png",
+          ],
+        },
+      },
+    );
+
+    const body = payload.body as {
+      input: { media?: Array<{ type: string; url: string }> };
+    };
+    const refImages = body.input.media?.filter(
+      (m) => m.type === "reference_image",
+    );
+    expect(refImages).toHaveLength(10);
+    expect(refImages?.at(-1)?.url).toBe(
+      "img:test-project/elements/up-1.png",
+    );
+  });
+
   it("throws a helpful Stage 2 keyframe error when first_last_frame mode has no keyframe asset", async () => {
     const scene = makeScene({
       videoMode: "first_last_frame",

@@ -91,6 +91,7 @@ export function Stage1Story({
   const [targetSceneCount, setTargetSceneCount] = useState<string>("");
 
   const [refining, setRefining] = useState(false);
+  const [refineConfirmOpen, setRefineConfirmOpen] = useState(false);
   const [savingStory, setSavingStory] = useState(false);
 
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
@@ -129,11 +130,7 @@ export function Stage1Story({
     return map;
   }, [warnings]);
 
-  const handleAutoRefine = async () => {
-    if (!roughIdea.trim()) {
-      toast.error("Enter a rough idea before running Auto-Refine.");
-      return;
-    }
+  const runAutoRefine = async (confirmRebuild: boolean) => {
     setRefining(true);
     try {
       const parsedCount = targetSceneCount.trim()
@@ -148,6 +145,7 @@ export function Stage1Story({
           ...(parsedCount && parsedCount >= 1 && parsedCount <= 30
             ? { targetSceneCount: parsedCount }
             : {}),
+          ...(confirmRebuild ? { confirm: true } : {}),
         }),
       });
       const data = await res.json();
@@ -169,6 +167,18 @@ export function Stage1Story({
     } finally {
       setRefining(false);
     }
+  };
+
+  const handleAutoRefine = () => {
+    if (!roughIdea.trim()) {
+      toast.error("Enter a rough idea before running Auto-Refine.");
+      return;
+    }
+    if (scenes.length > 0 || elements.length > 0) {
+      setRefineConfirmOpen(true);
+      return;
+    }
+    void runAutoRefine(false);
   };
 
   const handleSaveStory = async () => {
@@ -684,6 +694,39 @@ export function Stage1Story({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={refineConfirmOpen} onOpenChange={setRefineConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rebuild the storyboard?</DialogTitle>
+            <DialogDescription>
+              Auto-Refine replaces all {scenes.length} scene(s) and{" "}
+              {elements.length} reference element(s). Generated keyframes,
+              clips, and take history will be orphaned and must be regenerated.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRefineConfirmOpen(false)}
+              disabled={refining}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setRefineConfirmOpen(false);
+                void runAutoRefine(true);
+              }}
+              disabled={refining}
+            >
+              Rebuild Storyboard
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -58,11 +58,38 @@ export function mediaModeState(
   const disabledSlots: MediaType[] = [];
   const reasons: Record<string, string> = {};
 
-  const hasFrameAttached = Boolean(attached.firstFrame || attached.lastFrame);
+  // Only the media that the selected mode actually sends may influence slot
+  // disabling and submit readiness. Linked element sheets and uploads stay
+  // attached to the scene in every mode, but the request builder ignores
+  // references in frame/text modes and ignores frames in omni mode.
+  const scoped: AttachedMediaCounts =
+    mode === "text_to_video"
+      ? {
+          firstFrame: null,
+          lastFrame: null,
+          refImages: 0,
+          refVideos: 0,
+          refAudios: 0,
+        }
+      : mode === "first_last_frame"
+        ? {
+            firstFrame: attached.firstFrame,
+            lastFrame: attached.lastFrame,
+            refImages: 0,
+            refVideos: 0,
+            refAudios: 0,
+          }
+        : {
+            firstFrame: null,
+            lastFrame: null,
+            refImages: attached.refImages,
+            refVideos: attached.refVideos,
+            refAudios: attached.refAudios,
+          };
+
+  const hasFrameAttached = Boolean(scoped.firstFrame || scoped.lastFrame);
   const hasRefAttached =
-    attached.refImages > 0 ||
-    attached.refVideos > 0 ||
-    attached.refAudios > 0;
+    scoped.refImages > 0 || scoped.refVideos > 0 || scoped.refAudios > 0;
 
   for (const slot of MEDIA_TYPES) {
     if (!cap.allowedMediaTypes.includes(slot)) {
@@ -106,7 +133,7 @@ export function mediaModeState(
     }
 
     const max = cap.maxCounts[slot];
-    if (typeof max === "number" && attachedCountForSlot(slot, attached) >= max) {
+    if (typeof max === "number" && attachedCountForSlot(slot, scoped) >= max) {
       disabledSlots.push(slot);
       reasons[slot] = `Maximum of ${max} ${slot.replace(/_/g, " ")} reached.`;
       continue;
@@ -117,9 +144,7 @@ export function mediaModeState(
   if (mode === "first_last_frame") {
     const supportsFirst = cap.allowedMediaTypes.includes("first_frame");
     canSubmit =
-      supportsFirst &&
-      Boolean(attached.firstFrame) &&
-      !hasRefAttached;
+      supportsFirst && Boolean(scoped.firstFrame) && !hasRefAttached;
   } else if (mode === "omni_reference") {
     const supportsAnyRef = cap.allowedMediaTypes.some((t) =>
       REFERENCE_SLOTS.has(t),

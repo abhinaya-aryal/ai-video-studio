@@ -16,6 +16,7 @@ import {
   requireProject,
   requireScene,
 } from "@/lib/api/route-helpers";
+import { SceneUploadsSchema } from "@/lib/api/scene-uploads";
 import { getConfig } from "@/lib/config";
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
@@ -27,6 +28,7 @@ const SceneVideoSchema = z.object({
   projectId: z.string().trim().min(1),
   sceneId: z.string().trim().min(1),
   modelId: z.string().trim().min(1).optional(),
+  uploads: SceneUploadsSchema.optional(),
 });
 
 const DirectVideoSchema = z.object({
@@ -82,6 +84,7 @@ export async function POST(req: Request) {
         elements,
         project,
         cap,
+        { uploads: input.uploads },
       );
 
       const job = enqueueJob({

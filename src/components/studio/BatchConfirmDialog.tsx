@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { collectDroppedElementsByScene } from "@/lib/studio/dropped-elements";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +21,15 @@ export interface BatchPreview {
   model: string;
 }
 
+/** Per-scene uploads forwarded with a Stage 3 batch render. */
+export interface SceneUploadsPayload {
+  firstFrame?: string;
+  lastFrame?: string;
+  refImages?: string[];
+  refVideos?: string[];
+  refAudios?: string[];
+}
+
 interface BatchConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -27,6 +37,8 @@ interface BatchConfirmDialogProps {
   kind: "keyframes" | "clips";
   sceneIds: string[];
   modelId?: string;
+  uploadsByScene?: Record<string, SceneUploadsPayload>;
+  onDroppedElements?: (droppedByScene: Record<string, string[]>) => void;
   onConfirmed?: () => void | Promise<void>;
 }
 
@@ -37,6 +49,8 @@ export function BatchConfirmDialog({
   kind,
   sceneIds,
   modelId,
+  uploadsByScene,
+  onDroppedElements,
   onConfirmed,
 }: BatchConfirmDialogProps) {
   const [preview, setPreview] = useState<BatchPreview | null>(null);
@@ -115,6 +129,9 @@ export function BatchConfirmDialog({
           sceneIds,
           confirm: true,
           ...(modelId ? { modelId } : {}),
+          ...(uploadsByScene && Object.keys(uploadsByScene).length > 0
+            ? { uploadsByScene }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -127,9 +144,22 @@ export function BatchConfirmDialog({
       const enqueuedCount = Array.isArray(data.jobs)
         ? data.jobs.length
         : (preview?.count ?? sceneIds.length);
-      toast.success(
-        `Queued ${enqueuedCount} ${kind === "keyframes" ? "keyframe" : "video"} job(s)`,
+
+      const droppedByScene = collectDroppedElementsByScene(
+        data?.droppedElementsByScene,
       );
+      const droppedNames = Object.values(droppedByScene).flat();
+
+      if (droppedNames.length > 0) {
+        toast.warning(
+          `Queued ${enqueuedCount} ${kind === "keyframes" ? "keyframe" : "video"} job(s); dropped extra elements: ${droppedNames.join(", ")}`,
+        );
+      } else {
+        toast.success(
+          `Queued ${enqueuedCount} ${kind === "keyframes" ? "keyframe" : "video"} job(s)`,
+        );
+      }
+      onDroppedElements?.(droppedByScene);
       onOpenChange(false);
       await onConfirmed?.();
     } catch (err) {

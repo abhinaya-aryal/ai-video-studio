@@ -24,7 +24,10 @@ import {
   MediaModePicker,
   type UploadedMediaItem,
 } from "@/components/MediaModePicker";
-import { BatchConfirmDialog } from "@/components/studio/BatchConfirmDialog";
+import {
+  BatchConfirmDialog,
+  type SceneUploadsPayload,
+} from "@/components/studio/BatchConfirmDialog";
 import { ExportPanel } from "@/components/studio/ExportPanel";
 import { ShotStrip } from "@/components/studio/ShotStrip";
 import { TakeHistory } from "@/components/studio/TakeHistory";
@@ -100,6 +103,27 @@ interface LocalSceneUploads {
   refAudios?: UploadedMediaItem[];
 }
 
+function toSceneUploadsPayload(
+  uploads: LocalSceneUploads | undefined,
+): SceneUploadsPayload | undefined {
+  if (!uploads) return undefined;
+
+  const payload: SceneUploadsPayload = {};
+  if (uploads.firstFrame) payload.firstFrame = uploads.firstFrame.filePath;
+  if (uploads.lastFrame) payload.lastFrame = uploads.lastFrame.filePath;
+  if (uploads.refImages?.length) {
+    payload.refImages = uploads.refImages.map((item) => item.filePath);
+  }
+  if (uploads.refVideos?.length) {
+    payload.refVideos = uploads.refVideos.map((item) => item.filePath);
+  }
+  if (uploads.refAudios?.length) {
+    payload.refAudios = uploads.refAudios.map((item) => item.filePath);
+  }
+
+  return Object.keys(payload).length > 0 ? payload : undefined;
+}
+
 /**
  * Stage 3 Studio view: ShotStrip overview, per-scene video generation with
  * MediaModePicker, dropped-elements notices, TakeHistory, batch rendering,
@@ -172,6 +196,15 @@ export function Stage3Video({
 
   const sceneIds = useMemo(() => scenes.map((s) => s.id), [scenes]);
 
+  const uploadsByScene = useMemo(() => {
+    const map: Record<string, SceneUploadsPayload> = {};
+    for (const [sceneId, uploads] of Object.entries(localUploads)) {
+      const payload = toSceneUploadsPayload(uploads);
+      if (payload) map[sceneId] = payload;
+    }
+    return map;
+  }, [localUploads]);
+
   const readyClipsCount = useMemo(
     () => scenes.filter((s) => Boolean(s.activeVideoAssetId)).length,
     [scenes],
@@ -210,6 +243,7 @@ export function Stage3Video({
   const handleGenerateClip = async (sceneId: string) => {
     setGeneratingSceneId(sceneId);
     try {
+      const uploads = toSceneUploadsPayload(localUploads[sceneId]);
       const res = await fetch("/api/generate/video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -217,6 +251,7 @@ export function Stage3Video({
           projectId: project.id,
           sceneId,
           modelId: project.defaultVideoModel,
+          ...(uploads ? { uploads } : {}),
         }),
       });
       const data = await res.json();
@@ -710,6 +745,10 @@ export function Stage3Video({
         kind="clips"
         sceneIds={sceneIds}
         modelId={project.defaultVideoModel}
+        uploadsByScene={uploadsByScene}
+        onDroppedElements={(dropped) =>
+          setDroppedByScene((prev) => ({ ...prev, ...dropped }))
+        }
         onConfirmed={onRefreshJobs}
       />
     </div>
