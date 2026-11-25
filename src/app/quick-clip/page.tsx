@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  Clapperboard,
   Loader2,
   Play,
   RotateCcw,
@@ -12,19 +13,14 @@ import {
 import { toast } from "sonner";
 import type { Asset, AudioMode, Project, VideoMode } from "@/db/schema";
 import { AudioModeSelect } from "@/components/AudioModeSelect";
+import { EmptyState } from "@/components/EmptyState";
 import { JobStatusBadge } from "@/components/JobStatusBadge";
 import {
   MediaModePicker,
   type UploadedMediaItem,
 } from "@/components/MediaModePicker";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -36,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useJobs } from "@/hooks/useJobs";
 import type { MediaType, ModelCapability } from "@/lib/providers/types";
 import { mediaModeState } from "@/lib/studio/media-mode";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_CAPABILITY: ModelCapability = {
   modelId: "wan3.0-video",
@@ -91,6 +88,7 @@ export default function QuickClipPage() {
     null,
   );
   const [assetsById, setAssetsById] = useState<Record<string, Asset>>({});
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -381,26 +379,40 @@ export default function QuickClipPage() {
   }, [capability]);
 
   const videoJobs = jobs.filter((j) => j.modality === "video");
+  const readyVideoJobs = videoJobs.filter((job) => job.status === "READY");
+  const selectedJob =
+    videoJobs.find((job) => job.id === selectedJobId) ??
+    readyVideoJobs[0] ??
+    videoJobs[0];
+
+  const selectedAsset = selectedJob?.resultAssetId
+    ? assetsById[selectedJob.resultAssetId]
+    : undefined;
+  const selectedVideoUrl = selectedAsset
+    ? `/api/files/${selectedAsset.filePath}`
+    : null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Quick Clip</h1>
-        <p className="text-sm text-muted-foreground">
-          Direct Wan video synthesis without creating a full story project.
-          Supports text-to-video, first/last frames, and omni-reference.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Workspace"
+        title="Quick Clip"
+        description="Direct Wan video synthesis without creating a full story project. Supports text-to-video, first/last frames, and omni-reference."
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Generate Clip</CardTitle>
-          <CardDescription>
-            Write a prompt, optionally polish it with your text model, attach
-            reference media, and queue generation.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        {/* Composer */}
+        <section className="panel space-y-5 p-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+              Generate Clip
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Write a prompt, optionally polish it with your text model, attach
+              reference media, and queue generation.
+            </p>
+          </div>
+
           <form onSubmit={handleGenerate} className="space-y-5">
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
@@ -542,22 +554,23 @@ export default function QuickClipPage() {
             />
 
             {submitError && (
-              <div className="flex items-start gap-2 rounded-md border border-red-800/60 bg-red-950/30 p-3 text-xs text-red-200">
-                <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
-                <span>{submitError}</span>
+              <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                <span className="min-w-0 break-words">{submitError}</span>
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
               {!modeState.canSubmit && (
-                <span className="text-xs text-amber-400">
+                <span className="text-xs text-warning">
                   Attach a First Frame or switch mode to submit.
                 </span>
               )}
               <Button
                 type="submit"
+                size="lg"
                 disabled={submitting || !modeState.canSubmit || !prompt.trim()}
-                className="gap-2"
+                className="gap-2 px-5"
               >
                 {submitting ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -568,101 +581,166 @@ export default function QuickClipPage() {
               </Button>
             </div>
           </form>
-        </CardContent>
-      </Card>
+        </section>
 
-      {/* Recent Quick Clip Jobs */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Quick Clips</CardTitle>
-          <CardDescription>
-            Jobs poll automatically every 3 seconds until complete.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {jobsLoading && videoJobs.length === 0 ? (
-            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              <span>Loading jobs...</span>
+        {/* Output & Recent Clips */}
+        <aside className="space-y-4 xl:sticky xl:top-8 xl:self-start">
+          <section className="panel space-y-4 p-5">
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold tracking-tight text-foreground">
+                Recent Quick Clips
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Jobs poll automatically every 3 seconds until complete.
+              </p>
             </div>
-          ) : videoJobs.length === 0 ? (
-            <p className="py-6 text-sm text-muted-foreground">
-              No Quick Clip jobs yet. Submit a prompt above to generate your
-              first clip.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {videoJobs.map((job) => {
-                const asset = job.resultAssetId
-                  ? assetsById[job.resultAssetId]
-                  : undefined;
-                const videoUrl = asset
-                  ? `/api/files/${asset.filePath}`
-                  : null;
 
-                return (
-                  <div
-                    key={job.id}
-                    className="rounded-lg border border-border bg-background/40 p-4 space-y-3"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <JobStatusBadge
-                          status={job.status}
-                          errorMessage={job.errorMessage}
-                        />
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {job.modelId}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(job.createdAt).toLocaleTimeString()}
-                        </span>
-                        {job.status === "FAILED" && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void retryJob(job.id)}
-                            className="gap-1.5"
-                          >
-                            <RotateCcw className="size-3.5" />
-                            <span>Retry</span>
-                          </Button>
-                        )}
-                      </div>
+            {jobsLoading && videoJobs.length === 0 ? (
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                <span>Loading jobs...</span>
+              </div>
+            ) : !selectedJob ? (
+              <EmptyState
+                icon={Clapperboard}
+                title="No Quick Clip jobs yet"
+                description="No Quick Clip jobs yet. Submit a prompt above to generate your first clip."
+                className="border-dashed bg-surface-2/20 py-8 shadow-none"
+              />
+            ) : (
+              <div className="space-y-4">
+                {/* Main Selected Job */}
+                <div className="space-y-3 rounded-xl border border-border bg-surface-2/40 p-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <JobStatusBadge
+                        status={selectedJob.status}
+                        errorMessage={selectedJob.errorMessage}
+                      />
+                      <span className="truncate font-mono text-xs text-muted-foreground">
+                        {selectedJob.modelId}
+                      </span>
                     </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="font-mono text-[11px] tabular-nums text-subtle-foreground">
+                        {new Date(selectedJob.createdAt).toLocaleTimeString()}
+                      </span>
+                      {selectedJob.status === "FAILED" && (
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          onClick={() => void retryJob(selectedJob.id)}
+                          className="gap-1"
+                        >
+                          <RotateCcw className="size-3" />
+                          <span>Retry</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
 
-                    {job.status === "FAILED" && job.errorMessage && (
-                      <div className="flex items-start gap-2 rounded-md border border-red-800/60 bg-red-950/30 p-2.5 text-xs text-red-200">
-                        <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
-                        <span>{job.errorMessage}</span>
+                  {selectedJob.status === "FAILED" &&
+                    selectedJob.errorMessage && (
+                      <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
+                        <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                        <span className="min-w-0 break-words">
+                          {selectedJob.errorMessage}
+                        </span>
                       </div>
                     )}
 
-                    {job.status === "READY" && videoUrl ? (
-                      <div className="overflow-hidden rounded-md border border-border bg-black">
-                        <video
-                          src={videoUrl}
-                          controls
-                          playsInline
-                          className="max-h-[420px] w-full"
-                        />
-                      </div>
-                    ) : job.status === "READY" ? (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Play className="size-3.5" />
-                        <span>Loading video preview...</span>
-                      </div>
-                    ) : null}
+                  {selectedJob.status === "READY" && selectedVideoUrl ? (
+                    <div className="overflow-hidden rounded-lg border border-border bg-black">
+                      <video
+                        key={selectedJob.id}
+                        src={selectedVideoUrl}
+                        controls
+                        playsInline
+                        className="max-h-[360px] w-full"
+                      />
+                    </div>
+                  ) : selectedJob.status === "READY" ? (
+                    <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                      <Play className="size-3.5" />
+                      <span>Loading video preview...</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Recent List */}
+                <div className="space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-subtle-foreground">
+                    History ({videoJobs.length})
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                    {videoJobs.map((job) => {
+                      const isSelected = selectedJob.id === job.id;
+                      return (
+                        <div
+                          key={job.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedJobId(job.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setSelectedJobId(job.id);
+                            }
+                          }}
+                          className={cn(
+                            "flex cursor-pointer flex-col gap-1.5 rounded-xl border p-2.5 text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            isSelected
+                              ? "border-primary/50 bg-primary/5"
+                              : "border-border bg-surface-2/30 hover:border-border-strong",
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <JobStatusBadge
+                                status={job.status}
+                                errorMessage={job.errorMessage}
+                              />
+                              <span className="truncate font-mono text-[11px] text-muted-foreground">
+                                {job.modelId}
+                              </span>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <span className="font-mono text-[11px] tabular-nums text-subtle-foreground">
+                                {new Date(job.createdAt).toLocaleTimeString()}
+                              </span>
+                              {job.status === "FAILED" && (
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void retryJob(job.id);
+                                  }}
+                                  className="h-6 gap-1 px-2"
+                                >
+                                  <RotateCcw className="size-3" />
+                                  <span>Retry</span>
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          {job.status === "FAILED" && job.errorMessage && (
+                            <p className="line-clamp-2 text-[11px] text-destructive">
+                              {job.errorMessage}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }
