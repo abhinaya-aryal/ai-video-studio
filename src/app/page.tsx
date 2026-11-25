@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
-  Clapperboard,
   FolderPlus,
   Loader2,
-  Settings,
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -162,27 +159,15 @@ export default function ProjectsDashboardPage() {
         title={<span className="prism-text">Projects</span>}
         description="Manage multi-scene stories, consistent element libraries, and Kdenlive exports."
         actions={
-          <>
-            <Link href="/quick-clip">
-              <Button variant="ghost" className="gap-2">
-                <Clapperboard className="size-4" />
-                <span>Quick Clip</span>
-              </Button>
-            </Link>
-            <Link href="/settings" aria-label="Settings">
-              <Button variant="ghost" size="icon" aria-label="Settings">
-                <Settings className="size-4" />
-              </Button>
-            </Link>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger
-                render={
-                  <Button className="gap-2">
-                    <FolderPlus className="size-4" />
-                    <span>New Project</span>
-                  </Button>
-                }
-              />
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger
+              render={
+                <Button className="gap-2">
+                  <FolderPlus className="size-4" />
+                  <span>New Project</span>
+                </Button>
+              }
+            />
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>New Story Project</DialogTitle>
@@ -346,7 +331,6 @@ export default function ProjectsDashboardPage() {
                 </form>
               </DialogContent>
             </Dialog>
-          </>
         }
       />
 
@@ -361,15 +345,10 @@ export default function ProjectsDashboardPage() {
               <p className="text-xs text-muted-foreground">
                 Edit <code className="font-mono">.env.local</code> with your
                 DashScope or Token Plan key and restart the server, then verify
-                in Settings.
+                in <strong>Provider Status</strong> from the sidebar.
               </p>
             </div>
           </div>
-          <Link href="/settings">
-            <Button size="sm" variant="outline">
-              Open Settings
-            </Button>
-          </Link>
         </div>
       )}
 
@@ -382,15 +361,12 @@ export default function ProjectsDashboardPage() {
         <EmptyState
           icon={Sparkles}
           title="No projects yet"
-          description="Start a multi-scene story project or jump straight into Quick Clip for single-shot Wan video generation."
+          description="Start a multi-scene story project or jump straight into Quick Clip from the sidebar."
         >
           <Button onClick={() => setDialogOpen(true)} className="gap-2">
             <FolderPlus className="size-4" />
             <span>Create First Project</span>
           </Button>
-          <Link href="/quick-clip">
-            <Button variant="outline">Try Quick Clip</Button>
-          </Link>
         </EmptyState>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

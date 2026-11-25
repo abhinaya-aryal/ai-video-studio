@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clapperboard, Film, FolderKanban, Settings } from "lucide-react";
+import {
+  Activity,
+  Boxes,
+  Clapperboard,
+  Film,
+  FolderKanban,
+  Palette,
+  Settings,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const WORKSPACE_ITEMS = [
@@ -10,11 +18,21 @@ const WORKSPACE_ITEMS = [
   { href: "/quick-clip", label: "Quick Clip", icon: Clapperboard },
 ] as const;
 
-const SYSTEM_ITEMS = [
-  { href: "/settings", label: "Settings", icon: Settings },
+const SETTINGS_ITEMS = [
+  { href: "/settings/providers", label: "Provider Status", icon: Activity },
+  { href: "/settings/models", label: "Custom Models", icon: Boxes },
+  { href: "/settings/presets", label: "Style Presets", icon: Palette },
 ] as const;
 
-const NAV_ITEMS = [...WORKSPACE_ITEMS, ...SYSTEM_ITEMS];
+type NavItem =
+  | (typeof WORKSPACE_ITEMS)[number]
+  | (typeof SETTINGS_ITEMS)[number];
+
+const MOBILE_ITEMS = [
+  { href: "/", label: "Projects", icon: FolderKanban },
+  { href: "/quick-clip", label: "Quick Clip", icon: Clapperboard },
+  { href: "/settings/providers", label: "Settings", icon: Settings },
+] as const;
 
 export function NavSidebar() {
   const pathname = usePathname();
@@ -23,14 +41,13 @@ export function NavSidebar() {
     if (href === "/") {
       return pathname === "/" || pathname.startsWith("/projects/");
     }
+    if (href === "/settings/providers" && pathname === "/settings") {
+      return true;
+    }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const renderNavLink = ({
-    href,
-    label,
-    icon: Icon,
-  }: (typeof NAV_ITEMS)[number]) => {
+  const renderNavLink = ({ href, label, icon: Icon }: NavItem) => {
     const active = isActive(href);
     return (
       <Link
@@ -63,7 +80,7 @@ export function NavSidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-[272px] md:shrink-0 md:flex-col border-r border-border bg-sidebar/90 bg-[radial-gradient(120%_45%_at_0%_0%,var(--glow-1),transparent_70%)] backdrop-blur">
+      <aside className="hidden md:sticky md:top-0 md:flex md:h-screen md:w-[272px] md:shrink-0 md:flex-col md:overflow-y-auto border-r border-border bg-sidebar/90 bg-[radial-gradient(120%_45%_at_0%_0%,var(--glow-1),transparent_70%)] backdrop-blur">
         <div className="flex items-center gap-3 border-b border-border px-5 py-5">
           <div className="flow-icon flex size-9 shrink-0 items-center justify-center rounded-xl">
             <Film className="size-4" />
@@ -90,15 +107,15 @@ export function NavSidebar() {
 
           <div className="space-y-1.5">
             <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-subtle-foreground">
-              System
+              Settings
             </div>
             <div className="space-y-1">
-              {SYSTEM_ITEMS.map(renderNavLink)}
+              {SETTINGS_ITEMS.map(renderNavLink)}
             </div>
           </div>
         </nav>
 
-        <div className="p-3.5">
+        <div className="mt-auto p-3.5">
           <div className="panel px-3.5 py-3 text-xs text-muted-foreground">
             <p className="font-medium text-foreground">Local SQLite + Disk</p>
             <p className="mt-0.5 text-[11px] text-subtle-foreground">
@@ -115,8 +132,11 @@ export function NavSidebar() {
           <span>AI Video Studio</span>
         </Link>
         <nav className="flex items-center gap-1" aria-label="Mobile">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = isActive(href);
+          {MOBILE_ITEMS.map(({ href, label, icon: Icon }) => {
+            const active =
+              href === "/settings/providers"
+                ? pathname.startsWith("/settings")
+                : isActive(href);
             return (
               <Link
                 key={href}

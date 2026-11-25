@@ -42,7 +42,7 @@ Configure `QWEN_API_KEY`, `QWEN_KEY_TYPE`, and `QWEN_REGION` in `.env.local`:
   2. **Stage 2 — Elements & Keyframes:** Generate or upload consistent reference element sheets (characters, props, locations), render first/last keyframes per scene or in batch (`Generate All Keyframes`), and optionally synthesize voiceover audio via Qwen TTS.
   3. **Stage 3 — Video, Shot Strip & Export:** Review scenes in the ordered `ShotStrip`, configure `MediaModePicker` (`text_to_video`, `first_last_frame`, `omni_reference`), generate per-scene or batch video clips (`Generate All Clips`), switch active takes in `TakeHistory`, and rebuild/download Kdenlive exports.
 - **Quick Clip (`/quick-clip`):** Direct single-shot Wan video generation without creating a full project. Supports prompt polishing, audio mode selection, text-to-video, first/last frame, and omni-reference uploads with live job polling and inline video preview.
-- **Settings (`/settings`):** Inspect masked provider keys, key type, region, resolved base URL, and key/URL mismatch warnings; test Qwen and OpenAI-compatible connections; register custom models; and manage style presets.
+- **Settings (`/settings/providers`, `/settings/models`, `/settings/presets`):** Dedicated sidebar-linked pages to inspect masked provider keys and test connections, register custom models, and manage style presets.
 
 ## Kdenlive Workflow
 
