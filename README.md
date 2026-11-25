@@ -24,6 +24,7 @@ Useful commands:
 - `bun run build` — Create production build
 - `bun run test` — Run test suite (`vitest run`)
 - `bun run lint` — Run ESLint
+- `bun run db:generate` — Generate Drizzle SQLite migrations into `drizzle/`
 
 ## Token Plan vs Standard Keys
 

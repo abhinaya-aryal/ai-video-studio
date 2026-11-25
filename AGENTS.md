@@ -9,7 +9,8 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 
 - `src/app/` — Next.js App Router pages, layouts, and API route handlers (`src/app/api/*`).
 - `src/lib/config.ts` — Lazy `zod`-validated environment configuration (`getConfig()`) and `maskApiKey()`.
-- `src/db/` *(planned Task 2)* — SQLite via `better-sqlite3` + Drizzle ORM (`${DATA_DIR}/studio.db`) and `drizzle-kit` migrations. Stores non-secret project, element, scene, take, and job state.
+- `src/lib/storage/paths.ts` — Safe `PROJECTS_DIR` path resolution (`UnsafePathError`), slugification, project folder scaffolding, and `story.md` writer.
+- `src/db/` — SQLite via `better-sqlite3` + Drizzle ORM (`${DATA_DIR}/studio.db`) and `drizzle-kit` migrations (`drizzle/`). Stores non-secret project, element, scene, asset, job, custom model, and style preset state.
 - `src/providers/` *(planned Tasks 3–4)* — QwenCloud / DashScope text, image, video (Wan 3.0 / 2.7), TTS, temporary OSS upload, and OpenAI-compatible text adapters.
 - `src/jobs/` *(planned Task 6)* — `globalThis` singleton background job runner started via `instrumentation.ts`.
 - `src/export/` *(planned Task 7)* — Kdenlive-ready export builder (`export_kdenlive/` + optional starter `project.kdenlive` + zip archive).
@@ -41,6 +42,7 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `bun run start` — Serve production build (`next start`).
 - `bun run test` — Run Vitest test suite (`vitest run`).
 - `bun run lint` — Run ESLint.
+- `bun run db:generate` — Generate Drizzle SQLite migrations into `drizzle/`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
