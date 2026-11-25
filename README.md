@@ -34,6 +34,12 @@ Configure `QWEN_API_KEY`, `QWEN_KEY_TYPE`, and `QWEN_REGION` in `.env.local`:
 - **Standard DashScope (`sk-...`):** Standard keys route to DashScope regional endpoints and optionally accept `QWEN_WORKSPACE_ID`.
 - **Custom OpenAI-Compatible Text Provider:** Set `TEXT_PROVIDER=openai_compat` along with `OPENAI_COMPAT_BASE_URL`, `OPENAI_COMPAT_MODEL`, and optional `OPENAI_COMPAT_API_KEY` to use a local or third-party OpenAI-compatible text endpoint for script/prompt refinement.
 
+## Studio Pages
+
+- **Projects Dashboard (`/`):** View existing projects, create new projects with a built-in or custom style preset, and jump to Quick Clip or Settings.
+- **Quick Clip (`/quick-clip`):** Direct single-shot Wan video generation without creating a full project. Supports prompt polishing, audio mode selection, text-to-video, first/last frame, and omni-reference uploads with live job polling and inline video preview.
+- **Settings (`/settings`):** Inspect masked provider keys, key type, region, resolved base URL, and key/URL mismatch warnings; test Qwen and OpenAI-compatible connections; register custom models; and manage style presets.
+
 ## Kdenlive Workflow
 
 Generated assets live under `${PROJECTS_DIR}/<slug>/`. Exporting a project rebuilds `export_kdenlive/` directly from the current scene order and active takes (plus an optional starter `project.kdenlive` timeline file and downloadable archive) so exported clips always match your latest storyboard edits without stale files.
