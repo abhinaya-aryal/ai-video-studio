@@ -1,81 +1,104 @@
 # AI Video Studio — Design Specification
 
-**Date:** 2026-11-25  
-**Status:** Ready for User Approval  
-**Target Directory:** `/home/abhinaya/codes/ai-video-web`
+**Date:** 2026-11-25 (revised same day after plan review)  
+**Status:** Approved by user, revisions folded in  
+**Repository:** `https://github.com/abhinaya-aryal/ai-video-web` (public). Run from any local clone; no machine-specific paths.
 
 ---
 
 ## 1. Intent & Why
 
-A local-first, modern web studio for creating AI-assisted videos end-to-end—centered on **Alibaba Cloud Model Studio (QwenCloud / DashScope)** and extensible to other AI providers—built specifically for someone new to generative media APIs.
+A local-first, modern web studio for creating AI-assisted videos end-to-end. It centers on **Alibaba Cloud Model Studio (QwenCloud / DashScope)**, can be extended to other AI providers, and is built for someone new to generative media APIs.
 
-Instead of exposing raw API parameters or a generic chat box, the studio turns rough story ideas into structured, model-ready scenes, lets the user create reusable **Character & Style Reference Sheets** for visual consistency, generates supporting keyframes and video clips with synchronized audio via **Wan 3.0** (plus Wan 2.7 and future models), and saves every asset neatly on disk so the user can assemble the final cut in **Kdenlive**. The codebase is personal-first today and structured cleanly so it can be open-sourced later.
+Instead of exposing raw API parameters or a generic chat box, the studio:
+- turns rough story ideas into structured, model-ready scenes;
+- lets the user create reusable **Reference Elements** (characters, props, locations), inspired by WonderClip's consistent-element model, for visual consistency;
+- generates keyframes and video clips with synchronized audio via **Wan 3.0** (plus Wan 2.7 and future models);
+- saves every asset on disk so the user can assemble the final cut in **Kdenlive**.
+
+The repo is public on GitHub, so it must be open-source-clean from day 1.
 
 ---
 
 ## 2. Goals, Non-Goals, and Anti-Goals
 
 ### Goals
-- **Video-first Guided Storyboard Studio:** Take a user from a rough idea -> auto-refined story, Character/Style Bible, & Scene Cards -> Character Reference Sheets & Scene Keyframes -> Wan Video Generation (with native synchronized audio modes) -> clean Kdenlive-ready project folder.
-- **Quick Clip Mode:** A lightweight tab/workspace for generating one-off video clips (Text-to-Video, First/Last Frame, or Omni-Reference) without creating a multi-scene storyboard.
-- **Automatic Story & Prompt Refining:** Automatically expand and polish rough user ideas into cohesive stories, camera/motion cues, audio/dialogue/narration instructions, and consistent scene breakdowns, while allowing the user to review and edit every step.
-- **Unified Video + Audio with Clear Audio Mode Controls:** Leverage Wan 3.0's native audio-video generation with a simple UI selector per scene (**Ambient / BGM Only**, **Narration**, **Character Dialogue**, or **Silent**), plus optional standalone TTS track generation (`qwen-audio-3.0-tts-plus`) when the user wants a separate `.mp3` voice track in Kdenlive.
-- **Character & Style Consistency:** Generate or upload project-level Character Reference Sheets (and a Style Bible) that automatically feed into scene keyframe generation and Wan 3.0 Omni-Reference video calls.
-- **First-class QwenCloud Support (including Token Plan):** Support both **Token Plan (`sk-sp-*`)** and **Standard Model Studio (`sk-*`)** credentials across Singapore (`ap-southeast-1`) and Beijing (`cn-beijing`) regions, plus custom endpoint overrides and a "Test Connection" button.
-- **Future-Ready Model Catalog & Pluggable Providers:** Focus primarily on **Wan 3.0** (`wan3.0-video`, `wan3.0-video-prime`), while also supporting **Wan 2.7** (`wan2.7-t2v`, `wan2.7-i2v`, `wan2.7-r2v`) and upcoming models via a data-driven capability registry, plus an **OpenAI-compatible text provider** (OpenAI, OpenRouter, DeepSeek, Ollama) and clean adapter interfaces for future video/image providers.
-- **Automatic Local Asset Persistence:** Immediately download generated images, audio, and MP4 clips to disk before DashScope's temporary URLs expire (24 hours), using predictable, Kdenlive-friendly filenames.
-- **Open-Source Ready:** Zero hardcoded secrets, `.env.example`, server-side-only key handling, local SQLite storage, and clear setup instructions.
+- **Video-first Guided Storyboard Studio:** rough idea -> auto-refined story, Style Bible, Reference Elements & Scene Cards -> reference sheets & scene keyframes -> Wan video generation (with native audio modes) -> clean Kdenlive-ready project folder.
+- **Quick Clip Mode:** a lightweight workspace for one-off clips (Text-to-Video, First/Last Frame, or Omni-Reference) without a multi-scene storyboard.
+- **Automatic Story & Prompt Refining:** expand rough ideas into cohesive stories, camera/motion cues, audio/dialogue/narration instructions, and scene breakdowns. Every step stays editable.
+- **Unified Video + Audio with Audio Mode controls:** per scene, choose **Ambient / BGM Only**, **Narration**, **Character Dialogue**, or **Silent**. Optional standalone TTS (`qwen-audio-3.0-tts-plus`) when a separate `.mp3` track is wanted in Kdenlive.
+- **Consistent Element Library (WonderClip-inspired):** project-level reference sheets of kind `character`, `prop`, or `location`, generated or uploaded. They feed into scene keyframes and Wan Omni-Reference calls, and the prompt refers to them by position as `@Image N`.
+- **Reusable Style Presets (WonderClip "templates"):** built-in presets (Cinematic, Anime, Documentary, Product) plus "Save Style Bible as Preset" so a look can be reused across projects.
+- **Batch with guardrails:** "Generate All Keyframes / Clips" shows a confirmation with clip count and total seconds, runs under a concurrency cap, and retries throttled requests with backoff.
+- **First-class QwenCloud support (including Token Plan):** **Token Plan (`sk-sp-*`)** and **Standard (`sk-*`)** keys across Singapore (`ap-southeast-1`) and Beijing (`cn-beijing`), custom base URLs, and a "Test Connection" check.
+- **Future-ready model catalog & pluggable providers:** Wan 3.0 (`wan3.0-video`, `wan3.0-video-prime`) by default, plus Wan 2.7 (`wan2.7-t2v`, `wan2.7-i2v`, `wan2.7-r2v`) and user-added custom model IDs through a data-driven capability registry. An **OpenAI-compatible text provider** (OpenAI, OpenRouter, DeepSeek, Ollama) is available for story refining.
+- **Automatic local persistence:** download every generated image, audio file, and MP4 as soon as its task completes, before DashScope's ~24h URLs expire.
+- **Open-source & agent-ready from day 1:**
+  - `README.md` and `AGENTS.md` (cross-tool standard);
+  - `.gemini/settings.json` so Gemini CLI reads `AGENTS.md`, and a `CLAUDE.md` that imports it (no symlinks, which break on Windows clones);
+  - `.env.example`; zero secrets in the repo, database, or browser.
 
 ### Non-Goals
-- **No built-in video stitching / NLE timeline editor:** Final assembly, transitions, color grading, and multi-track mixing happen externally in Kdenlive.
-- **No general-purpose chatbot UI:** Text LLMs exist strictly to refine stories, maintain character/style consistency, break down scenes, and improve visual/motion/audio prompts.
-- **No multi-user auth, cloud hosting, or billing:** Single-user local studio (clean enough to self-host or open-source).
+- **No built-in video stitching / NLE timeline.** Final assembly happens in Kdenlive. The app may optionally write a starter `.kdenlive` project with clips laid out in order.
+- **No general-purpose chatbot UI.** Text LLMs only refine stories, keep elements and style consistent, break down scenes, and polish prompts.
+- **No infinite canvas, multi-user auth, cloud hosting, or billing.**
 
 ### Anti-Goals
-- Exposing API keys in browser JavaScript or calling DashScope directly from client code (fails CORS and leaks secrets).
-- Letting users trigger invalid Wan 3.0 payloads (e.g., mixing `first_frame`/`last_frame` with `reference_*` assets) and wait on avoidable API errors.
-- Losing generated media because temporary DashScope URLs expired after 24 hours.
+- Exposing API keys in browser JavaScript or storing them in SQLite.
+- Letting users send invalid Wan payloads (e.g. `first_frame`/`last_frame` mixed with `reference_*`, more than 10 reference images) and waiting on avoidable API errors.
+- Losing generated media to 24h URL expiry.
+- Unbounded batch generation that silently burns quota.
 
 ---
 
 ## 3. Technical & Platform Constraints
 
-1. **DashScope / QwenCloud Authentication & Endpoints:**
-   - **Token Plan (`sk-sp-*`):** Routes to `https://token-plan.{region}.maas.aliyuncs.com/...` (`ap-southeast-1` or `cn-beijing`), never standard `dashscope` endpoints (which reject `sk-sp-*` with `401 InvalidApiKey`). Verified to support Text (`/compatible-mode/v1/chat/completions`), Image (`/api/v1/services/aigc/multimodal-generation/generation`), Video (`/api/v1/services/aigc/video-generation/video-synthesis`), and TTS (`/api/v1/services/audio/tts/SpeechSynthesizer`).
-   - **Standard Pay-As-You-Go (`sk-*` / `sk-ws-*`):** Routes to `https://{workspaceId}.{region}.maas.aliyuncs.com/...` or `https://dashscope-intl.aliyuncs.com/...` (Singapore) / `https://dashscope.aliyuncs.com/...` (Beijing).
-   - **Browser CORS & Key Protection:** All provider calls execute on the Next.js server; raw API keys never leave the backend.
+1. **Configuration via environment (`.env.local`, template `.env.example`):**
+   - All provider credentials and endpoint settings come from environment variables only: key, key type, region, workspace ID, base URL override, default models, text-provider choice, and OpenAI-compatible settings.
+   - Paths (`DATA_DIR`, `PROJECTS_DIR`) and job-runner limits (`MAX_CONCURRENT_JOBS`, `JOB_POLL_INTERVAL_MS`) are also environment-driven, so tests can point at temp directories.
+   - Config is read lazily and validated with `zod` in one module (`src/lib/config.ts`). Invalid config surfaces as a clear message in Settings and in server logs.
+   - Non-secret user data lives in SQLite: projects, scenes, elements, assets, jobs, custom model IDs, and style presets.
 
-2. **Wan 3.0 All-in-One Rules (`wan3.0-video`, `wan3.0-video-prime`):**
-   - Async submission (`POST /api/v1/services/aigc/video-generation/video-synthesis` with `X-DashScope-Async: enable`) followed by polling (`GET /api/v1/tasks/{task_id}`).
-   - `input.media[]` accepts `first_frame`, `last_frame`, `reference_image` (up to 10), `reference_video` (up to 5, 1–15s each, <=15s total, MP4/MOV, >=16fps, <=100MB), `reference_audio` (up to 5, 1–15s each, <=15s total, WAV/MP3, <=15MB), `file`, and `link`.
-   - **Mutually exclusive modes:** `first_frame`/`last_frame` cannot be combined with `reference_*`, `file`, or `link` in the same request. The UI and server validator enforce this cleanly.
-   - **Media transport rules:**
-     - **Images** (`first_frame`, `last_frame`, `reference_image`): sent as Base64 data URIs (`data:<mime>;base64,...`, non-alpha JPEG/PNG/WEBP/BMP, <=20MB) or DashScope temporary `oss://` URLs.
-     - **Video & Audio** (`reference_video`, `reference_audio`): DashScope video endpoints do **not** accept Base64 for video/audio—local files must upload via DashScope's Temporary File Upload flow (`GET /api/v1/uploads?action=getPolicy&model=<model>` -> multipart POST to policy OSS host -> `oss://...` URL, sent with header `X-DashScope-OssResourceResolve: enable`).
-   - Parameters: `duration` (`2`–`30`s or `-1` smart), `resolution` (`480P` / `720P` / `1080P`), `ratio` (`16:9`, `9:16`, `1:1`, `adaptive`, etc.), `audio` (boolean), `prompt_extend` (boolean).
+2. **DashScope / QwenCloud authentication & endpoints:**
+   - **Token Plan (`sk-sp-*`):** always routes to `https://token-plan.{region}.maas.aliyuncs.com` (`ap-southeast-1` or `cn-beijing`). Standard `dashscope` endpoints reject these keys with `401 InvalidApiKey`. Supported paths:
+     - Text: `/compatible-mode/v1/chat/completions`
+     - Image: `/api/v1/services/aigc/multimodal-generation/generation`
+     - Video: `/api/v1/services/aigc/video-generation/video-synthesis` plus `/api/v1/tasks/{task_id}`
+     - TTS: `/api/v1/services/audio/tts/SpeechSynthesizer`
+   - **Standard (`sk-*` / `sk-ws-*`):** routes to `https://{workspaceId}.{region}.maas.aliyuncs.com`, or `https://dashscope-intl.aliyuncs.com` (Singapore) / `https://dashscope.aliyuncs.com` (Beijing).
+   - All provider calls run on the Next.js server.
 
-3. **Wan 2.7 & Upcoming Video Models:**
-   - Unlike Wan 3.0's unified `input.media[]` schema, Wan 2.7 splits T2V/I2V/R2V across separate model IDs (`wan2.7-t2v`, `wan2.7-i2v`, `wan2.7-r2v`) with distinct input fields (e.g., `input.image_url`).
-   - Supported via a **Model Capability Matrix & Per-Family Request Serializer**, making Wan 3.0 the default while cleanly adapting Wan 2.7 and future custom/upcoming model IDs (including an "Add Custom Model ID" option in Settings).
+3. **Wan video request schema (Wan 3.0 and Wan 2.7):**
+   - **Async flow:** submit with `POST .../video-synthesis` plus header `X-DashScope-Async: enable`, then poll `GET /api/v1/tasks/{task_id}`.
+   - **Shared input schema:** both families use `input.prompt` + `input.media[]` items of shape `{ type, url }`. Families differ in which `type`s each model ID accepts:
+     - **`wan3.0-video` / `-prime`:** `first_frame`, `last_frame`, `reference_image` (≤10), `reference_video` (≤5, 1–15s each, ≤15s total, MP4/MOV, ≥16fps, ≤100MB), `reference_audio` (≤5, 1–15s each, ≤15s total, WAV/MP3, ≤15MB), `file`, `link`.
+     - **Wan 2.7:** separate model IDs per mode. `wan2.7-t2v` takes no frame media, `wan2.7-i2v` takes `first_frame` (and `last_frame` if supported), and `wan2.7-r2v` takes reference media.
+     - The exact accepted types per Wan 2.7 ID are captured in the capability catalog and **must be re-verified against current Model Studio docs during Task 3**.
+   - **Mutual exclusion:** `first_frame`/`last_frame` cannot be combined with `reference_*`, `file`, or `link`. The UI and the server validator both enforce this.
+   - **Reference tagging:** reference images are referred to in the prompt by position (`@Image 1`, `@Image 2`, ...), matching the order of `reference_image` items. The exact tag syntax is verified in Task 3, and the prompt compiler owns the mapping.
+   - **Reference cap:** when a scene links more than 10 elements, keep characters first, then props, then locations (in link order within each kind), and show the user which elements were dropped.
+   - **Media transport:**
+     - **Images:** DashScope temporary `oss://` URLs are preferred for multi-image or >2MB payloads, to keep request bodies small. Base64 data URIs (`data:<mime>;base64,...`, non-alpha JPEG/PNG/WEBP/BMP, ≤20MB) are used for small single images. Base64 is built server-side at request time only and is never stored or sent to LLM prompts.
+     - **Video & audio:** never Base64. Always use the temporary upload flow: `GET /api/v1/uploads?action=getPolicy&model=<model>` -> multipart POST to the policy OSS host -> `oss://...`. Any request containing an `oss://` URL is sent with header `X-DashScope-OssResourceResolve: enable`.
+   - **Parameters:** `duration` (2–30s, or `-1` for smart), `resolution` (`480P` / `720P` / `1080P`), `ratio` (`16:9`, `9:16`, `1:1`, `adaptive`, ...), `audio` (boolean), `prompt_extend` (boolean).
+   - **Billing note (unverified):** cost depends on model, output duration, and resolution. Base64 vs. OSS affects request size, not output pricing. The batch confirmation shows clip count × seconds × resolution, not currency.
 
-4. **QwenCloud Multimodal Image & Audio Endpoints:**
-   - **Image (`wan2.7-image`, `wan2.7-image-pro`, `qwen-image-3.0`, etc.):** `POST /api/v1/services/aigc/multimodal-generation/generation` (supports multi-image character/style references in `input.messages[0].content[]`; handles both sync `output.choices[0].message.content[0].image` and async `task_id` polling).
-   - **Optional Standalone TTS (`qwen-audio-3.0-tts-plus`, `cosyvoice-*`):** `POST /api/v1/services/audio/tts/SpeechSynthesizer`, handling both direct binary audio bytes and JSON `{ output: { audio: { url } } }` responses.
+4. **Image & audio endpoints:**
+   - **Image** (`wan2.7-image`, `wan2.7-image-pro`, `qwen-image-3.0`): multi-image references go in `input.messages[0].content[]`. Responses may be synchronous (`output.choices[0].message.content[0].image`) or async (`task_id`), and both are handled by the job runner.
+   - **TTS** (`qwen-audio-3.0-tts-plus`, `cosyvoice-*`): responses may be binary audio or JSON `{ output: { audio: { url } } }`, and both are handled.
+   - Per-model maximum reference-image counts for image models are kept in the catalog and verified in Task 3.
 
-5. **Expiring Output URLs:** DashScope result URLs expire in ~24 hours; the backend downloads and saves every completed output locally immediately on completion.
+5. **Expiring outputs & error mapping:**
+   - Results are downloaded immediately on completion.
+   - Known DashScope error codes map to friendly messages on the scene card. Examples: `DataInspectionFailed` (content moderation), `Throttling` / HTTP 429 (retried with exponential backoff, max 3 attempts), `InvalidApiKey`, `InvalidParameter`.
 
 ---
 
 ## 4. Approaches Considered
 
-1. **Option A — Unified Next.js Full-Stack App (Chosen):**
-   - *Stack:* Next.js (App Router, TypeScript), React + Tailwind CSS, SQLite (`better-sqlite3` / Drizzle ORM), local `projects/` directory on disk.
-   - *Why chosen:* Single runtime (`npm install && npm run dev`), zero CORS issues via Route Handlers, strongly typed provider/model capability adapters end-to-end, and lowest friction when open-sourcing.
-2. **Option B — Split Vite React Frontend + Python FastAPI Backend:**
-   - *Why not chosen:* Requires managing two runtimes, virtualenvs, and servers without needing local Python ML inference.
-3. **Option C — Frontend-only SPA:**
-   - *Ruled out:* Blocked by DashScope CORS and exposes secret API keys in browser code.
+1. **Option A — Unified Next.js full-stack app (chosen):** Next.js App Router + TypeScript, React + Tailwind CSS + shadcn/ui, SQLite (`better-sqlite3` + Drizzle ORM with `drizzle-kit` migrations), and a local `projects/` directory. One runtime, no CORS problems, typed adapters end-to-end. **Bun** is the package manager and script runner. Next.js itself runs on Node (≥20), because `better-sqlite3` is a Node native addon.
+2. **Option B — Vite React + Python FastAPI:** rejected because it needs two runtimes with no local ML inference to justify it.
+3. **Option C — Frontend-only SPA:** ruled out by CORS and API key exposure.
 
 ---
 
@@ -83,75 +106,82 @@ Instead of exposing raw API parameters or a generic chat box, the studio turns r
 
 ### 5.1 High-Level Components
 
-1. **Provider Registry & Model Capability Matrix (`src/lib/providers/`):**
-   - Clean TypeScript interfaces:
-     - `TextRefinerProvider`: `refineStory(...)`, `refineScenePrompt(...)`, `testConnection(...)`
-     - `ImageProvider`: `generateImage(...)`, `editImage(...)`
+1. **Config (`src/lib/config.ts`):** loads and validates environment variables lazily, exposes typed `AppConfig`, and masks keys for display.
+
+2. **Provider Registry & Model Capability Catalog (`src/lib/providers/`):**
+   - **Interfaces:**
+     - `TextRefinerProvider`: `chat(...)`, `testConnection()`
+     - `ImageProvider`: `generateImage(...)`
      - `VideoProvider`: `submitVideoTask(...)`, `getTaskStatus(...)`
      - `AudioProvider`: `synthesizeSpeech(...)`
    - **Built-in implementations:**
-     - `QwenCloudProvider`: Supports Token Plan (`sk-sp-`) and Standard (`sk-`), Singapore/Beijing/Custom base URLs, temporary OSS file upload helper (`oss://` + `X-DashScope-OssResourceResolve: enable`), and per-family video serializers (`wan3` unified schema + `wan2.7` T2V/I2V/R2V schema).
-     - `OpenAICompatibleTextProvider`: Any `/v1/chat/completions` endpoint + API key + model ID for story/prompt refining.
-   - **Data-driven Model Catalog:** Defines capabilities per model (supported resolutions, max duration, native audio support, supports `first_frame`/`last_frame`, supports `reference_image`/`video`/`audio`, schema family) plus user-added custom model IDs so upcoming Wan/Qwen releases work immediately without code edits.
-   - **Per-Role Provider Assignment (Builder Call):** One QwenCloud profile defaults to serving all four roles, while Settings optionally lets the user mix providers per role (e.g., OpenRouter/Ollama for Story Refining + QwenCloud Token Plan for Image/Video).
+     - `QwenCloud`: Token Plan / Standard routing, temporary OSS upload, and a Wan payload builder driven by catalog capabilities.
+     - `OpenAICompatibleText`.
+   - **Catalog:** per-model capabilities (allowed media types, max reference counts, resolutions, duration range, native audio), merged with custom model IDs from SQLite.
+   - **Role assignment:** QwenCloud serves image/video/audio. Text uses `TEXT_PROVIDER=qwen|openai_compat`.
 
-2. **Settings & Provider Configuration (`/settings`):**
-   - Manage provider profiles (`QwenCloud Token Plan`, `QwenCloud Standard`, `OpenAI-Compatible`).
-   - Masked API key input stored server-side only; `.env` overrides supported for headless/open-source setups.
-   - **"Test Connection" action (Builder Call):** Calls `GET /compatible-mode/v1/models` (falling back to a minimal `max_tokens: 1` chat completion ping if `/models` is unsupported on a given endpoint) and checks region/key prefix compatibility (e.g., warning if an `sk-sp-` key is pointed at a non-`token-plan` URL).
+3. **Settings (`/settings`):**
+   - Read-only status of the configured providers, with masked keys.
+   - "Test Connection": `GET /compatible-mode/v1/models`, falling back to a `max_tokens: 1` chat ping. Warns when an `sk-sp-` key points at a non-`token-plan` URL.
+   - "Add Custom Model ID" form.
+   - Style preset manager.
+   - Changing credentials means editing `.env.local` and restarting. Settings explains this.
 
-3. **Guided Storyboard Studio (`/projects/[id]`):**
-   - **Project Setup:** Title, rough idea/story input, global style/mood preset (Cinematic, Anime, Documentary, Product, etc.), target aspect ratio (`16:9`, `9:16`, `1:1`), default resolution (`720P`, `1080P`, `480P`), and default video model (`wan3.0-video` / `wan3.0-video-prime` / `wan2.7-*` / custom).
-   - **Stage 1 — Story, Character Bible & Scene Breakdown:**
-     - User enters a rough idea (or pastes a draft) and clicks **Auto-Refine Story & Scenes**.
-     - Refiner LLM generates:
-       1. A polished story + global **Style Bible**;
-       2. A **Character Roster** (each character's name, visual description, wardrobe/features);
-       3. Ordered **Scene Cards** with: title, linked characters, visual prompt, camera/motion direction, **Audio Mode** (`ambient_only`, `narration`, `dialogue`, `silent`), audio/speech script (narration line or spoken dialogue + ambient cue), target duration (`2–30s`), and suggested video mode (`text_to_video`, `first_last_frame`, or `omni_reference`).
-     - Every field on every Scene Card is editable, reorderable, addable/deletable, and has a one-click **"AI Polish Prompt"** action.
-   - **Stage 2 — Character Sheets & Scene Keyframes:**
-     - **Character & Style References:** For each character in the roster (or manually added), click **Generate Character Sheet** (`wan2.7-image-pro` / `qwen-image-3.0`) or upload a local reference image. Approved character sheets become the project's consistency anchors.
-     - **Scene Keyframes (per scene or "Generate All"):** Generates start frame (and optional end frame) for each scene, **automatically attaching the linked characters' reference images** so character appearance stays consistent across scenes.
-     - **Optional Standalone Voiceover Track:** Collapsed/optional per-scene action using `qwen-audio-3.0-tts-plus` if the user specifically wants a separate `.mp3` track for Kdenlive or `reference_audio` guidance.
-   - **Stage 3 — Unified Video + Audio Generation & Kdenlive Export:**
-     - Each Scene Card compiles the visual prompt + camera direction + selected **Audio Mode** cue into the Wan request (`audio: true` for Ambient Only / Narration / Character Dialogue, `audio: false` for Silent).
-     - **Mode & Consistency Handling:**
-       - In **Omni-Reference mode** (best when animating directly from character sheets, reference videos, or reference audio): linked Character Reference Images automatically attach as `reference_image` alongside any user-uploaded `reference_video`/`reference_audio`.
-       - In **First/Last Frame mode** (best when locking exact Stage 2 keyframe composition): Stage 2's character-consistent keyframe attaches as `first_frame` (and optional `last_frame`), while `reference_*` slots are automatically disabled with a clear tooltip explaining Wan 3.0's mutual-exclusion rule.
-     - Live job badges (`PENDING` -> `RUNNING` -> `DOWNLOADING` -> `READY` / `FAILED`) persist across browser reloads via SQLite + background polling.
-     - Version history per scene (keep previous takes), inline video/image/audio previews, and **"Kdenlive Export"** showing the clean `export_kdenlive/` folder path + ZIP download.
+4. **Guided Storyboard Studio (`/projects/[id]`):**
+   - **Project Setup:** title, rough idea, style preset, aspect ratio (`16:9`, `9:16`, `1:1`), resolution (`720P`, `1080P`, `480P`), default video model.
+   - **Stage 1 — Story, Elements & Scene Breakdown:** "Auto-Refine Story & Scenes" produces:
+     1. a polished story + Style Bible;
+     2. Reference Elements (`kind`, name, visual description);
+     3. ordered Scene Cards. Each card has: title, linked elements (by name, resolved to IDs on save), visual prompt, camera/motion, Audio Mode (`ambient_only`, `narration`, `dialogue`, `silent`), audio script, duration (2–30s), and video mode (`text_to_video`, `first_last_frame`, `omni_reference`).
 
-4. **Quick Clip Studio (`/quick-clip`):**
-   - Single-screen generator for rapid one-off clips: rough prompt -> optional **Auto-Refine Prompt** -> pick Audio Mode (`Ambient Only`, `Narration`, `Dialogue`, `Silent`) -> attach `first_frame`/`last_frame` OR `reference_*` assets (including local video/audio uploaded via DashScope temp OSS) -> render and save into `projects/_quick-clips/`.
+     Every field is editable, cards can be reordered, added, or deleted, and each card has "AI Polish Prompt".
+   - **Stage 2 — Reference Elements & Scene Keyframes:**
+     - Generate a reference sheet (`wan2.7-image-pro` / `qwen-image-3.0`) or upload one for each element.
+     - Generate start (and optional end) keyframes per scene or with "Generate All", auto-attaching linked element sheets up to the image model's reference cap.
+     - Optional standalone TTS voiceover per scene (collapsed by default).
+   - **Stage 3 — Video + Audio & Kdenlive Export:**
+     - **Request building:** each scene compiles into a Wan request via a pure function, `buildSceneVideoRequest`. It adds the Audio Mode cue, `@Image N` element tags, and the reference cap, and enforces mutual exclusion.
+     - **Omni-Reference mode:** element sheets attach as `reference_image`, alongside any uploaded `reference_video`/`reference_audio`.
+     - **First/Last Frame mode:** Stage 2 keyframes attach as `first_frame`/`last_frame`. Reference slots are disabled, with a tooltip explaining why.
+     - **Batch generation:** "Generate All Clips" asks for confirmation first, then runs through a queue capped at `MAX_CONCURRENT_JOBS`.
+     - **Job status:** badges go `QUEUED` -> `PENDING` -> `RUNNING` -> `DOWNLOADING` -> `READY` / `FAILED` and persist across reloads.
+     - **Takes & preview:** per-scene take history with an "active take" selector, and a **Shot Strip Overview** to check visual continuity.
+     - **Kdenlive Export:** rebuilds `export_kdenlive/` from the current scene order and active takes every time it runs (removing stale files). It shows the folder path, offers a ZIP download, and optionally writes a starter `project.kdenlive` file.
 
-5. **Local Storage & Kdenlive-Friendly Disk Layout:**
-   - **SQLite (`data/studio.db`):** Stores `providers`, `projects`, `characters`, `scenes`, `assets` (versions, prompts, parameters, local file paths), and `jobs` (`task_id`, status, error details, timestamps).
-   - **Disk (`projects/<slug>/`):**
+5. **Quick Clip Studio (`/quick-clip`):** prompt -> optional Auto-Refine -> Audio Mode -> First/Last Frame **or** reference assets -> render. Output is saved under a hidden `_quick-clips` project row, at `projects/_quick-clips/`.
+
+6. **Job Runner (`src/lib/jobs/`):**
+   - One process-wide singleton (stored on `globalThis` so dev hot-reload doesn't duplicate it), started from Next.js `instrumentation.ts`, which also resumes in-flight jobs on boot.
+   - Handles image, video, and audio jobs with a concurrency cap, 429 backoff, idempotent downloads, and error-code mapping.
+   - Clients poll `/api/jobs`.
+
+7. **Local Storage:**
+   - **SQLite** at `${DATA_DIR}/studio.db`, migrated via `drizzle-kit`. Tables: `projects`, `reference_elements`, `scenes`, `assets`, `jobs`, `custom_models`, `style_presets`. No credentials are stored.
+   - **Disk** (`${PROJECTS_DIR}/<slug>/`):
      ```text
      projects/
        my-cyberpunk-short/
-         story.md                  # Refined story, style bible, & scene prompts
-         characters/
-           hero_kai_v1.png         # Character reference sheets
+         story.md
+         elements/
+           character_kai_v1.png
+           prop_katana_v1.png
+           location_neon_alley_v1.png
          scenes/
            01_opening_rain/
              keyframe_first_v1.png
-             clip_v1.mp4           # Video + synchronized audio
-             voiceover_v1.mp3      # (optional, if standalone TTS generated)
-           02_neon_alley/
-             ...
-         export_kdenlive/          # Active takes numbered cleanly for Kdenlive import:
+             clip_v1.mp4
+             voiceover_v1.mp3
+         export_kdenlive/          # Rebuilt on each export from active takes
            01_opening_rain.mp4
            02_neon_alley.mp4
+           project.kdenlive        # optional starter project
      ```
 
 ---
 
 ## 6. Decisions Left to the Builder
 
-- **UI Component Library & Visual Styling:** Choice of Tailwind + shadcn/ui (dark-mode-first studio aesthetic) and exact layout proportions.
-- **Database Schema & Migrations:** Exact Drizzle/SQLite table columns, indices, and migration scripts.
-- **Background Polling Mechanism:** Server-side polling loop / job runner + SSE or client polling endpoint to stream live job updates to the UI.
-- **Key Storage Hardening:** Storing API keys in local SQLite (optionally encrypted with a machine-local secret or `.env` override) with strict API response DTOs that never return raw keys to the client.
-- **LLM Structured Output Prompting:** Exact system prompts and JSON schema parsing/retry logic for converting rough ideas into consistent Story + Character Roster + Scene Cards, plus compiling Scene Audio Modes into clean Wan 3.0 prompts.
-- **Testing Setup:** Unit tests for provider payload builders (Wan 3.0 `media` mutual-exclusion rules, Wan 2.7 capability mapping, Token Plan vs Standard URL routing, temp OSS upload handling) and job/storage helpers.
+- Exact shadcn/ui components and layout proportions (dark-mode-first studio look).
+- Exact Drizzle columns and indices.
+- System prompts and JSON-repair retry wording for the refiner.
+- Minimal `.kdenlive` (MLT XML) structure. It must be verified by opening it in Kdenlive. If it can't be made reliable, ship the numbered clips only.
