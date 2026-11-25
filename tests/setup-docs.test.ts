@@ -37,8 +37,8 @@ describe("day-1 documentation and repository setup", () => {
 
     expect(lines).toContain(".env");
     expect(lines).toContain(".env.local");
-    expect(lines).toContain("data/");
-    expect(lines).toContain("projects/");
+    expect(lines).toContain("/data/");
+    expect(lines).toContain("/projects/");
     expect(lines).toContain(".superpowers/");
   });
 
