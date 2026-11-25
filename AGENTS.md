@@ -21,8 +21,8 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/lib/export/kdenlive.ts` — Kdenlive-ready export builder (`rebuildKdenliveExport`, `writeKdenliveProject`, `streamExportZip`) generating `export_kdenlive/`, starter `project.kdenlive`, `story.md`, and ZIP archive stream.
 - `src/lib/studio/scene-request.ts` — Scene video & keyframe request builders (`buildSceneVideoRequest`, `buildSceneKeyframeRequest`) applying kind-priority element capping (`@Image N`) and `first_last_frame` keyframe-only rules.
 - `src/lib/studio/media-mode.ts` — Pure `mediaModeState()` helper driving UI slot disabling, tooltip reasons, and submit readiness across `text_to_video`, `first_last_frame`, and `omni_reference`.
-- `src/components/` — Client UI components (`NavSidebar`, `AmbientBackdrop`, `PageHeader`, `EmptyState`, `JobStatusBadge`, `AudioModeSelect`, `MediaModePicker`, shadcn/ui primitives).
-- `src/components/studio/` — Guided 3-stage Storyboard Studio UI (`StageTabs`, `Stage1Story`, `SceneCard`, `Stage2Elements`, `ElementCard`, `Stage3Video`, `ShotStrip`, `TakeHistory`, `ExportPanel`, `BatchConfirmDialog`).
+- `src/components/` — Client UI components (`NavSidebar`, `AmbientBackdrop`, `PageHeader`, `EmptyState`, `ProjectCard`, `JobStatusBadge`, `AudioModeSelect`, `MediaModePicker`, shadcn/ui primitives).
+- `src/components/studio/` — Guided 3-stage Storyboard Studio UI (`StageTabs`, `StageRail`, `Stage1Story`, `SceneCard`, `Stage2Elements`, `ElementCard`, `Stage3Video`, `ShotStrip`, `TakeHistory`, `ExportPanel`, `BatchConfirmDialog`).
 - `src/hooks/` — Client React hooks (`useJobs` 3s job polling & retry helper).
 - `src/lib/api/` — Shared API route JSON parsing, error mapping (`handleRouteError`), and project/scene/element lookup helpers (`route-helpers.ts`).
 - `tests/` — Vitest unit and integration suites (`environment: "node"`, `@/*` -> `./src/*`).
@@ -44,7 +44,7 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - **Reference cap order:** characters, then props, then locations (link order within each kind). Prompt tags use `@Image N`, matching `reference_image` order.
 - **Job statuses & limits:** `QUEUED`, `PENDING`, `RUNNING`, `DOWNLOADING`, `READY`, `FAILED`. Concurrency `<= MAX_CONCURRENT_JOBS` (default `2`). Throttling/429 retries use exponential backoff (max 3 attempts).
 - **Doc sync rule:** Every task that changes architecture, commands, or environment variables MUST update `AGENTS.md`, `README.md`, and `.env.example` in the same commit.
-- **Single theme:** Color comes from `data-theme` tokens in `src/styles/theme.css`; never add `dark:` utilities or a `.dark` block.
+- **Single theme & scope:** Nebula-only (`data-theme="nebula"`), driven by `src/styles/theme.css` tokens; never add `dark:` utilities or a `.dark` block. UI scope is desktop-only.
 
 ## Commands
 

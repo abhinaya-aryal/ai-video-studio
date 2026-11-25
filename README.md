@@ -48,9 +48,12 @@ Configure `QWEN_API_KEY`, `QWEN_KEY_TYPE`, and `QWEN_REGION` in `.env.local`:
 
 Generated assets live under `${PROJECTS_DIR}/<slug>/`. Exporting a project rebuilds `export_kdenlive/` directly from the current scene order and active takes (plus an optional starter `project.kdenlive` timeline file and downloadable archive) so exported clips always match your latest storyboard edits without stale files.
 
-## Theme
+## Interface & Theme
 
-The UI uses the **Nebula** theme (`data-theme="nebula"`), with all color, surface, radius, shadow, and glow tokens defined in `src/styles/theme.css` and registered in `src/lib/theme.ts`. To add a future theme, add a sibling `[data-theme="..."]` block in `src/styles/theme.css` and register it in `src/lib/theme.ts`.
+- **Desktop Workspace Shell:** Persistent `NavSidebar` (`Workspace` and `System` groups) paired with an `AmbientBackdrop` and `PageHeader` across all screens.
+- **Studio Stage Rail:** Sticky project header with a 3-step `StageRail` (`Story & Scenes`, `Elements & Keyframes`, `Video & Export`), numbered timeline `SceneCard`s, `ShotStrip` filmstrip, and `ExportPanel`.
+- **Quick Clip Split View:** Two-column workspace with the composer on the left and a sticky output/recent-clips player on the right.
+- **Nebula Theme:** Uses the **Nebula** theme (`data-theme="nebula"`), with all color, surface, radius, shadow, and glow tokens defined in `src/styles/theme.css` and registered in `src/lib/theme.ts`. To add a future theme, add a sibling `[data-theme="..."]` block in `src/styles/theme.css` and register it in `src/lib/theme.ts`.
 
 ## Security Note
 
