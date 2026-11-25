@@ -10,6 +10,7 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/app/` — Next.js App Router pages, layouts, and API route handlers (`src/app/api/*`).
 - `src/styles/theme.css` — Single theme token block (`[data-theme="nebula"]`).
 - `src/lib/theme.ts` — Theme metadata registry (`THEMES`, `ThemeId`, `DEFAULT_THEME`).
+- `src/lib/ui/status.ts` — Semantic status tone mapping (`jobStatusTone()`, `StatusTone`), consumed by `JobStatusBadge` and semantic `Badge` variants.
 - `src/lib/config.ts` — Lazy `zod`-validated environment configuration (`getConfig()`) and `maskApiKey()`.
 - `src/lib/storage/paths.ts` — Safe `PROJECTS_DIR` path resolution (`UnsafePathError`), slugification, project folder scaffolding, and `story.md` writer.
 - `src/db/` — SQLite via `better-sqlite3` + Drizzle ORM (`${DATA_DIR}/studio.db`) and `drizzle-kit` migrations (`drizzle/`). Stores non-secret project, element, scene, asset, job, custom model, and style preset state.

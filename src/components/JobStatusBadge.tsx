@@ -14,6 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { jobStatusTone, type StatusTone } from "@/lib/ui/status";
 import { cn } from "@/lib/utils";
 
 interface JobStatusBadgeProps {
@@ -22,11 +23,21 @@ interface JobStatusBadgeProps {
   className?: string;
 }
 
+const TONE_VARIANT: Record<
+  StatusTone,
+  "secondary" | "info" | "success" | "warning" | "destructive"
+> = {
+  neutral: "secondary",
+  info: "info",
+  success: "success",
+  warning: "warning",
+  destructive: "destructive",
+};
+
 const STATUS_CONFIG: Record<
   JobStatus,
   {
     label: string;
-    classes: string;
     icon: typeof Clock;
     spin?: boolean;
     pulse?: boolean;
@@ -34,34 +45,28 @@ const STATUS_CONFIG: Record<
 > = {
   QUEUED: {
     label: "Queued",
-    classes: "bg-zinc-800 text-zinc-200 border-zinc-700",
     icon: Clock,
   },
   PENDING: {
     label: "Pending",
-    classes: "bg-amber-950/70 text-amber-300 border-amber-800/60",
     icon: Clock,
   },
   RUNNING: {
     label: "Running",
-    classes: "bg-blue-950/70 text-blue-300 border-blue-800/60",
     icon: Loader2,
     spin: true,
   },
   DOWNLOADING: {
     label: "Downloading",
-    classes: "bg-indigo-950/70 text-indigo-300 border-indigo-800/60",
     icon: Download,
     pulse: true,
   },
   READY: {
     label: "Ready",
-    classes: "bg-emerald-950/70 text-emerald-300 border-emerald-800/60",
     icon: CheckCircle2,
   },
   FAILED: {
     label: "Failed",
-    classes: "bg-red-950/70 text-red-300 border-red-800/60",
     icon: AlertCircle,
   },
 };
@@ -73,11 +78,12 @@ export function JobStatusBadge({
 }: JobStatusBadgeProps) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.QUEUED;
   const Icon = cfg.icon;
+  const variant = TONE_VARIANT[jobStatusTone(status)] ?? "secondary";
 
   const badge = (
     <Badge
-      variant="outline"
-      className={cn("gap-1.5 font-medium", cfg.classes, className)}
+      variant={variant}
+      className={cn("gap-1.5 font-medium", className)}
     >
       <Icon
         className={cn(
