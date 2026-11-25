@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   BookmarkPlus,
   Check,
+  Clapperboard,
   Loader2,
   MapPin,
   Package,
@@ -20,16 +21,10 @@ import {
   type ReferenceElement,
   type Scene,
 } from "@/db/schema";
+import { EmptyState } from "@/components/EmptyState";
 import { SceneCard } from "@/components/studio/SceneCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 export interface RefineWarning {
   sceneIndex: number;
@@ -67,11 +63,31 @@ interface Stage1StoryProps {
 
 const KIND_META: Record<
   ElementKind,
-  { label: string; plural: string; icon: typeof User }
+  {
+    label: string;
+    plural: string;
+    icon: typeof User;
+    dotClass: string;
+  }
 > = {
-  character: { label: "Character", plural: "Characters", icon: User },
-  prop: { label: "Prop", plural: "Props", icon: Package },
-  location: { label: "Location", plural: "Locations", icon: MapPin },
+  character: {
+    label: "Character",
+    plural: "Characters",
+    icon: User,
+    dotClass: "bg-primary text-primary",
+  },
+  prop: {
+    label: "Prop",
+    plural: "Props",
+    icon: Package,
+    dotClass: "bg-info text-info",
+  },
+  location: {
+    label: "Location",
+    plural: "Locations",
+    icon: MapPin,
+    dotClass: "bg-warning text-warning",
+  },
 };
 
 export function Stage1Story({
@@ -365,46 +381,48 @@ export function Stage1Story({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Rough Idea & Auto-Refine */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>Story Concept & Auto-Refine</CardTitle>
-              <CardDescription>
-                Write your rough idea and let the refiner generate a structured
-                story, element roster, and scene breakdown.
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={1}
-                max={30}
-                value={targetSceneCount}
-                onChange={(e) => setTargetSceneCount(e.target.value)}
-                placeholder="Scenes (auto)"
-                className="h-9 w-32 text-xs"
-                aria-label="Target scene count"
-              />
-              <Button
-                type="button"
-                onClick={handleAutoRefine}
-                disabled={refining || !roughIdea.trim()}
-                className="gap-1.5"
-              >
-                {refining ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Sparkles className="size-4" />
-                )}
-                {refining ? "Refining..." : "Auto-Refine"}
-              </Button>
-            </div>
+      <section className="panel space-y-5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="eyebrow">Stage 1</div>
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              Story Concept &amp; Auto-Refine
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Write your rough idea and let the refiner generate a structured
+              story, element roster, and scene breakdown.
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={targetSceneCount}
+              onChange={(e) => setTargetSceneCount(e.target.value)}
+              placeholder="Scenes (auto)"
+              className="h-9 w-32 text-xs"
+              aria-label="Target scene count"
+            />
+            <Button
+              type="button"
+              onClick={handleAutoRefine}
+              disabled={refining || !roughIdea.trim()}
+              className="gap-1.5"
+            >
+              {refining ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Sparkles className="size-4" />
+              )}
+              {refining ? "Refining..." : "Auto-Refine"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
               Rough Idea
@@ -456,7 +474,7 @@ export function Stage1Story({
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end border-t border-border pt-4">
             <Button
               type="button"
               variant={storyDirty ? "default" : "outline"}
@@ -472,128 +490,133 @@ export function Stage1Story({
               {storyDirty ? "Save Story & Style Bible" : "Saved"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Element Roster */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Element Roster ({elements.length})</CardTitle>
-          <CardDescription>
+      <section className="panel space-y-5 p-6">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+            Element Roster ({elements.length})
+          </h2>
+          <p className="text-sm text-muted-foreground">
             Consistent characters, props, and locations referenced across
             scenes.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <form
-            onSubmit={handleAddElement}
-            className="grid gap-2 rounded-lg border bg-muted/30 p-3 md:grid-cols-[150px_1fr_2fr_auto]"
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleAddElement}
+          className="grid gap-2.5 rounded-xl border border-border bg-surface-2/40 p-3 md:grid-cols-[150px_1fr_2fr_auto]"
+        >
+          <Select
+            value={newElKind}
+            onValueChange={(val) => {
+              if (val) setNewElKind(val as ElementKind);
+            }}
           >
-            <Select
-              value={newElKind}
-              onValueChange={(val) => {
-                if (val) setNewElKind(val as ElementKind);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>{KIND_META[newElKind].label}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {ELEMENT_KINDS.map((k) => (
-                  <SelectItem key={k} value={k}>
-                    {KIND_META[k].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              value={newElName}
-              onChange={(e) => setNewElName(e.target.value)}
-              placeholder="Element name"
-              required
-            />
-            <Input
-              value={newElDesc}
-              onChange={(e) => setNewElDesc(e.target.value)}
-              placeholder="Visual description (appearance, materials, colors...)"
-            />
-            <Button type="submit" disabled={addingElement} className="gap-1.5">
-              {addingElement ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              Add
-            </Button>
-          </form>
+            <SelectTrigger className="w-full">
+              <SelectValue>{KIND_META[newElKind].label}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {ELEMENT_KINDS.map((k) => (
+                <SelectItem key={k} value={k}>
+                  {KIND_META[k].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={newElName}
+            onChange={(e) => setNewElName(e.target.value)}
+            placeholder="Element name"
+            required
+          />
+          <Input
+            value={newElDesc}
+            onChange={(e) => setNewElDesc(e.target.value)}
+            placeholder="Visual description (appearance, materials, colors...)"
+          />
+          <Button type="submit" disabled={addingElement} className="gap-1.5">
+            {addingElement ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Plus className="size-4" />
+            )}
+            Add
+          </Button>
+        </form>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {ELEMENT_KINDS.map((kind) => {
-              const meta = KIND_META[kind];
-              const Icon = meta.icon;
-              const items = groupedElements[kind];
-              return (
-                <div
-                  key={kind}
-                  className="space-y-2.5 rounded-lg border border-border/70 p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-sm font-medium">
-                      <Icon className="size-4 text-muted-foreground" />
-                      <span>{meta.plural}</span>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {items.length}
-                    </Badge>
+        <div className="grid gap-4 md:grid-cols-3">
+          {ELEMENT_KINDS.map((kind) => {
+            const meta = KIND_META[kind];
+            const Icon = meta.icon;
+            const items = groupedElements[kind];
+            return (
+              <div
+                key={kind}
+                className="space-y-2.5 rounded-xl border border-border bg-surface-2/30 p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <span
+                      aria-hidden="true"
+                      className={cn("size-2 rounded-full", meta.dotClass)}
+                    />
+                    <Icon className="size-3.5 text-muted-foreground" />
+                    <span>{meta.plural}</span>
                   </div>
-
-                  {items.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      No {meta.plural.toLowerCase()} yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {items.map((el) => (
-                        <div
-                          key={el.id}
-                          className="flex items-start justify-between gap-2 rounded-md border bg-card/60 p-2.5 text-xs"
-                        >
-                          <div className="min-w-0 space-y-0.5">
-                            <div className="font-medium truncate">
-                              {el.name}
-                            </div>
-                            {el.description && (
-                              <p className="text-muted-foreground line-clamp-2">
-                                {el.description}
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="shrink-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteElement(el.id)}
-                            title={`Delete ${el.name}`}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {items.length}
+                  </Badge>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+
+                {items.length === 0 ? (
+                  <p className="py-2 text-xs text-subtle-foreground">
+                    No {meta.plural.toLowerCase()} yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {items.map((el) => (
+                      <div
+                        key={el.id}
+                        className="group/el flex items-start justify-between gap-2 rounded-lg border border-border bg-card/70 p-2.5 text-xs transition-colors hover:border-border-strong"
+                      >
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="truncate font-medium text-foreground">
+                            {el.name}
+                          </div>
+                          {el.description && (
+                            <p className="line-clamp-2 text-muted-foreground">
+                              {el.description}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="shrink-0 text-muted-foreground opacity-60 transition-opacity hover:text-destructive group-hover/el:opacity-100 focus-visible:opacity-100"
+                          onClick={() => handleDeleteElement(el.id)}
+                          title={`Delete ${el.name}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Scenes Breakdown */}
-      <div className="space-y-4">
+      <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
               Scenes ({scenes.length})
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -625,12 +648,22 @@ export function Stage1Story({
         </div>
 
         {scenes.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              No scenes yet. Run <strong>Auto-Refine</strong> above or click{" "}
-              <strong>Add Scene</strong> to start building your storyboard.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Clapperboard}
+            title="No scenes yet"
+            description="Run Auto-Refine above or click Add Scene to start building your storyboard."
+          >
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleAddScene}
+              disabled={addingScene}
+              className="gap-1.5"
+            >
+              <Plus className="size-4" />
+              Add Scene
+            </Button>
+          </EmptyState>
         ) : (
           <div className="space-y-4">
             {scenes.map((scene, index) => (
@@ -655,7 +688,7 @@ export function Stage1Story({
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Save Style Bible as Preset Dialog */}
       <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>

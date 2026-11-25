@@ -17,7 +17,6 @@ import type { AudioMode, ReferenceElement, Scene, VideoMode } from "@/db/schema"
 import { AudioModeSelect } from "@/components/AudioModeSelect";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -216,24 +215,15 @@ export function SceneCard({
     unknownElementNames.length > 0 || missingLinkedIds.length > 0;
 
   return (
-    <Card className="border-border/70">
-      <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Badge variant="secondary" className="shrink-0 font-mono">
-              #{String(index + 1).padStart(2, "0")}
-            </Badge>
-            <CardTitle className="sr-only">{title}</CardTitle>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Scene title"
-              className="h-8 max-w-md font-medium"
-              aria-label={`Scene ${index + 1} title`}
-            />
-          </div>
+    <article className="panel overflow-hidden">
+      <div className="flex flex-col md:flex-row">
+        {/* Left timeline index rail */}
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-background-2/70 px-4 py-3 md:w-20 md:shrink-0 md:flex-col md:border-r md:border-b-0 md:py-5">
+          <Badge variant="accent" className="font-mono text-xs tabular-nums">
+            #{String(index + 1).padStart(2, "0")}
+          </Badge>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 md:flex-col">
             <Button
               type="button"
               variant="ghost"
@@ -272,7 +262,7 @@ export function SceneCard({
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="text-destructive hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive"
               disabled={deleting}
               onClick={async () => {
                 setDeleting(true);
@@ -292,231 +282,259 @@ export function SceneCard({
             </Button>
           </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Visual Prompt
-            </label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={handlePolish}
-              disabled={polishing || !visualPrompt.trim()}
-            >
-              {polishing ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="size-3.5" />
-              )}
-              AI Polish
-            </Button>
+        {/* Right content */}
+        <div className="min-w-0 flex-1 space-y-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3.5">
+            <div className="min-w-0 flex-1">
+              <h3 className="sr-only">{title}</h3>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Scene title"
+                className="h-9 max-w-lg font-medium"
+                aria-label={`Scene ${index + 1} title`}
+              />
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Badge variant="outline" className="font-mono text-[11px] tabular-nums">
+                {duration}s
+              </Badge>
+              <Badge variant="secondary" className="text-[11px]">
+                {VIDEO_MODE_LABELS[videoMode] ?? videoMode}
+              </Badge>
+              <Badge variant={isDirty ? "warning" : "success"} className="text-[11px]">
+                {isDirty ? "Unsaved" : "Saved"}
+              </Badge>
+            </div>
           </div>
-          <Textarea
-            rows={3}
-            value={visualPrompt}
-            onChange={(e) => setVisualPrompt(e.target.value)}
-            placeholder="Describe the shot, lighting, action, and subject..."
-          />
-        </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Camera Direction
-            </label>
-            <Input
-              value={cameraDirection}
-              onChange={(e) => setCameraDirection(e.target.value)}
-              placeholder="e.g. Slow dolly in, eye-level"
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Visual Prompt
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={handlePolish}
+                disabled={polishing || !visualPrompt.trim()}
+              >
+                {polishing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="size-3.5" />
+                )}
+                AI Polish
+              </Button>
+            </div>
+            <Textarea
+              rows={3}
+              value={visualPrompt}
+              onChange={(e) => setVisualPrompt(e.target.value)}
+              placeholder="Describe the shot, lighting, action, and subject..."
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Video Mode
-            </label>
-            <Select
-              value={videoMode}
-              onValueChange={(val) => {
-                if (val) setVideoMode(val as VideoMode);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {VIDEO_MODE_LABELS[videoMode] ?? videoMode}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(VIDEO_MODE_LABELS) as VideoMode[]).map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {VIDEO_MODE_LABELS[mode]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Camera Direction
+              </label>
+              <Input
+                value={cameraDirection}
+                onChange={(e) => setCameraDirection(e.target.value)}
+                placeholder="e.g. Slow dolly in, eye-level"
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Duration (seconds)
-            </label>
-            <Input
-              type="number"
-              min={2}
-              max={30}
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value) || 5)}
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Audio Mode
-            </label>
-            <AudioModeSelect value={audioMode} onChange={setAudioMode} />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Audio Script / Dialogue / SFX
-            </label>
-            <Input
-              value={audioScript}
-              onChange={(e) => setAudioScript(e.target.value)}
-              placeholder={
-                audioMode === "silent"
-                  ? "Silent scene"
-                  : "Narration, dialogue line, or ambient cue..."
-              }
-              disabled={audioMode === "silent"}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Linked Elements
-            </label>
-            {availableToAdd.length > 0 && (
-              <Select value={elementToAdd} onValueChange={handleAddElement}>
-                <SelectTrigger className="h-7 w-48 text-xs">
-                  <SelectValue placeholder="Link element...">
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Plus className="size-3" /> Link element
-                    </span>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Video Mode
+              </label>
+              <Select
+                value={videoMode}
+                onValueChange={(val) => {
+                  if (val) setVideoMode(val as VideoMode);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {VIDEO_MODE_LABELS[videoMode] ?? videoMode}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableToAdd.map((el) => (
-                    <SelectItem key={el.id} value={el.id}>
-                      <span className="capitalize text-muted-foreground mr-1.5">
-                        [{el.kind}]
-                      </span>
-                      {el.name}
-                    </SelectItem>
-                  ))}
+                  {(Object.keys(VIDEO_MODE_LABELS) as VideoMode[]).map(
+                    (mode) => (
+                      <SelectItem key={mode} value={mode}>
+                        {VIDEO_MODE_LABELS[mode]}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
-            )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Duration (seconds)
+              </label>
+              <Input
+                type="number"
+                min={2}
+                max={30}
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value) || 5)}
+              />
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            {linkedIds.length === 0 && (
-              <span className="text-xs text-muted-foreground">
-                No elements linked yet.
-              </span>
-            )}
-            {linkedIds.map((id) => {
-              const el = elementMap.get(id);
-              if (!el) {
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Audio Mode
+              </label>
+              <AudioModeSelect value={audioMode} onChange={setAudioMode} />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Audio Script / Dialogue / SFX
+              </label>
+              <Input
+                value={audioScript}
+                onChange={(e) => setAudioScript(e.target.value)}
+                placeholder={
+                  audioMode === "silent"
+                    ? "Silent scene"
+                    : "Narration, dialogue line, or ambient cue..."
+                }
+                disabled={audioMode === "silent"}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Linked Elements
+              </label>
+              {availableToAdd.length > 0 && (
+                <Select value={elementToAdd} onValueChange={handleAddElement}>
+                  <SelectTrigger className="h-7 w-48 text-xs">
+                    <SelectValue placeholder="Link element...">
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Plus className="size-3" /> Link element
+                      </span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableToAdd.map((el) => (
+                      <SelectItem key={el.id} value={el.id}>
+                        <span className="mr-1.5 capitalize text-muted-foreground">
+                          [{el.kind}]
+                        </span>
+                        {el.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {linkedIds.length === 0 && (
+                <span className="text-xs text-subtle-foreground">
+                  No elements linked yet.
+                </span>
+              )}
+              {linkedIds.map((id) => {
+                const el = elementMap.get(id);
+                if (!el) {
+                  return (
+                    <Badge
+                      key={id}
+                      variant="warning"
+                      className="gap-1"
+                    >
+                      <AlertTriangle className="size-3" />
+                      Unknown ({id.slice(0, 8)})
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveElement(id)}
+                        className="ml-0.5 hover:text-foreground"
+                        aria-label={`Remove unknown element ${id}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </Badge>
+                  );
+                }
                 return (
                   <Badge
                     key={id}
-                    variant="outline"
-                    className="gap-1 border-amber-700/70 bg-amber-950/60 text-amber-300"
+                    variant="secondary"
+                    className="max-w-full gap-1.5 pr-1 text-xs"
                   >
-                    <AlertTriangle className="size-3" />
-                    Unknown ({id.slice(0, 8)})
+                    <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {el.kind}
+                    </span>
+                    <span className="truncate">{el.name}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveElement(id)}
-                      className="ml-0.5 hover:text-foreground"
-                      aria-label={`Remove unknown element ${id}`}
+                      className="shrink-0 rounded-full p-0.5 hover:bg-surface-3"
+                      aria-label={`Unlink ${el.name}`}
                     >
                       <X className="size-3" />
                     </button>
                   </Badge>
                 );
-              }
-              return (
-                <Badge
-                  key={id}
-                  variant="secondary"
-                  className="gap-1.5 pr-1 text-xs"
-                >
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {el.kind}
-                  </span>
-                  <span>{el.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveElement(id)}
-                    className="rounded-sm p-0.5 hover:bg-muted"
-                    aria-label={`Unlink ${el.name}`}
-                  >
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              );
-            })}
+              })}
+            </div>
+
+            {hasUnknownWarning && (
+              <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                <div>
+                  {unknownElementNames.length > 0 && (
+                    <span>
+                      Unresolved element name(s) from refiner:{" "}
+                      <strong>{unknownElementNames.join(", ")}</strong>.{" "}
+                    </span>
+                  )}
+                  {missingLinkedIds.length > 0 && (
+                    <span>
+                      {missingLinkedIds.length} linked element ID(s) no longer
+                      exist in the roster.
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {hasUnknownWarning && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-800/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-300">
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-              <div>
-                {unknownElementNames.length > 0 && (
-                  <span>
-                    Unresolved element name(s) from refiner:{" "}
-                    <strong>{unknownElementNames.join(", ")}</strong>.{" "}
-                  </span>
-                )}
-                {missingLinkedIds.length > 0 && (
-                  <span>
-                    {missingLinkedIds.length} linked element ID(s) no longer
-                    exist in the roster.
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+          <div className="flex justify-end border-t border-border pt-3">
+            <Button
+              type="button"
+              size="sm"
+              variant={isDirty ? "default" : "outline"}
+              onClick={handleSave}
+              disabled={saving || !isDirty}
+            >
+              {saving ? (
+                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+              ) : (
+                <Check className="mr-1.5 size-3.5" />
+              )}
+              {isDirty ? "Save Scene" : "Saved"}
+            </Button>
+          </div>
         </div>
-
-        <div className="flex justify-end pt-1">
-          <Button
-            type="button"
-            size="sm"
-            variant={isDirty ? "default" : "outline"}
-            onClick={handleSave}
-            disabled={saving || !isDirty}
-          >
-            {saving ? (
-              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-            ) : (
-              <Check className="mr-1.5 size-3.5" />
-            )}
-            {isDirty ? "Save Scene" : "Saved"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
 }
