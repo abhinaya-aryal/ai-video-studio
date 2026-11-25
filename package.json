@@ -37,10 +37,6 @@
     "vitest": "^5.1.1"
   },
   "packageManager": "bun@1.4.5",
-  "ignoreScripts": [
-    "sharp",
-    "unrs-resolver"
-  ],
   "trustedDependencies": [
     "better-sqlite3",
     "sharp",
