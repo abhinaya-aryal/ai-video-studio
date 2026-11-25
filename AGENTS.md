@@ -16,6 +16,8 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/lib/jobs/` — Background job runner (`runner.ts` with `enqueueJob`, `getRunner()`, `JobRunner` concurrency/backoff/resume) and idempotent local asset persistence (`persist.ts` with `persistResult`).
 - `src/instrumentation.ts` — Next.js `register()` hook that calls `getRunner().resume()` and `getRunner().start()` on the Node.js runtime.
 - `src/lib/export/kdenlive.ts` — Kdenlive-ready export builder (`rebuildKdenliveExport`, `writeKdenliveProject`, `streamExportZip`) generating `export_kdenlive/`, starter `project.kdenlive`, `story.md`, and ZIP archive stream.
+- `src/lib/studio/scene-request.ts` — Scene video & keyframe request builders (`buildSceneVideoRequest`, `buildSceneKeyframeRequest`) applying kind-priority element capping (`@Image N`) and `first_last_frame` keyframe-only rules.
+- `src/lib/api/route-helpers.ts` — Shared API route JSON parsing, error mapping (`handleRouteError`), and project/scene/element lookup helpers.
 - `tests/` — Vitest unit and integration suites (`environment: "node"`, `@/*` -> `./src/*`).
 - `docs/superpowers/` — Design spec and implementation plan (read-only reference).
 - Runtime directories (gitignored): `${DATA_DIR}` (`./data`) and `${PROJECTS_DIR}` (`./projects/<slug>/`).
