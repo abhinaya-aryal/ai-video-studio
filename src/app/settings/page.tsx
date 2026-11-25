@@ -311,7 +311,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="System"
-        title="Settings"
+        title={<span className="prism-text">Settings</span>}
         description="Inspect provider environment status, test connectivity, and manage custom models & style presets."
         actions={
           <Button

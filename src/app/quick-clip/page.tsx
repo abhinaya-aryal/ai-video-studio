@@ -396,7 +396,11 @@ export default function QuickClipPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Workspace"
-        title="Quick Clip"
+        title={
+          <>
+            Quick <span className="prism-text">Clip</span>
+          </>
+        }
         description="Direct Wan video synthesis without creating a full story project. Supports text-to-video, first/last frames, and omni-reference."
       />
 

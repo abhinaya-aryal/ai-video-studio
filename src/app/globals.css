@@ -59,6 +59,9 @@
 }
 
 @layer base {
+  :root {
+    --grad: linear-gradient(100deg, var(--primary) 0%, var(--primary-2) 55%, var(--primary-3) 100%);
+  }
   * {
     @apply border-border outline-ring/50;
   }
@@ -74,32 +77,83 @@
 }
 
 .panel {
-  background: color-mix(in oklab, var(--card) 88%, transparent);
+  position: relative;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: inset 0 1px 0 #ffffff0a, var(--shadow);
 }
 
+.panel-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 120px;
+  background: radial-gradient(80% 100% at 0% 0%, var(--glow-1), transparent 70%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.panel-featured::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 70%;
+  height: 120%;
+  background: radial-gradient(closest-side, var(--glow-2), transparent);
+  pointer-events: none;
+}
+
 .panel-hover {
-  transition: border-color 180ms ease, box-shadow 180ms ease;
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
 }
 
 .panel-hover:hover {
-  border-color: var(--border-strong);
-  box-shadow: inset 0 1px 0 #ffffff0a, var(--shadow), 0 0 0 1px var(--glow-1), 0 18px 40px -24px var(--glow-1);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 #ffffff14,
+    var(--shadow),
+    0 0 0 1px var(--glow-1),
+    0 20px 44px -22px var(--glow-1);
 }
 
 .prism-text {
-  background: linear-gradient(100deg, var(--primary) 0%, var(--primary-2) 55%, var(--primary-3) 100%);
+  background: var(--grad);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
+.prism-badge {
+  background: var(--grad);
+  color: var(--primary-foreground);
+  font-weight: 700;
+  border-color: transparent;
+}
+
+.flow-icon {
+  background: var(--grad);
+  color: var(--primary-foreground);
+  box-shadow: 0 10px 26px -12px var(--primary);
+}
+
+.tile-icon {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
 .prism-line {
   height: 1px;
-  background: linear-gradient(90deg, var(--primary), var(--primary-2) 55%, var(--primary-3));
-  opacity: 0.55;
+  background: var(--grad);
+  opacity: 0.65;
 }
 
 .eyebrow {
@@ -118,13 +172,20 @@
   width: 18px;
   height: 2px;
   border-radius: 9999px;
-  background: linear-gradient(90deg, var(--primary), var(--primary-2));
+  background: var(--grad);
 }
 
 .media-tile {
   border: 1px dashed var(--border-strong);
-  background: color-mix(in oklab, var(--surface-2) 40%, transparent);
+  background: color-mix(in oklab, var(--surface-2) 45%, transparent);
   border-radius: 12px;
+}
+
+.hero-bg {
+  background:
+    radial-gradient(70% 55% at 50% -8%, var(--glow-1), transparent 70%),
+    radial-gradient(36% 42% at 92% 22%, var(--glow-2), transparent 70%),
+    radial-gradient(32% 38% at 6% 40%, var(--glow-3), transparent 70%);
 }
 
 .ambient-glow {

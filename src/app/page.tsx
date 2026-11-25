@@ -159,7 +159,7 @@ export default function ProjectsDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Workspace"
-        title="Projects"
+        title={<span className="prism-text">Projects</span>}
         description="Manage multi-scene stories, consistent element libraries, and Kdenlive exports."
         actions={
           <>

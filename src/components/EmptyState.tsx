@@ -24,8 +24,8 @@ export function EmptyState({
         className,
       )}
     >
-      <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 via-primary-2/15 to-primary-3/20 ring-1 ring-primary/30 shadow-[0_0_24px_-6px_var(--glow-1)]">
-        <Icon className="size-6 text-primary" />
+      <div className="flow-icon mb-4 flex size-14 items-center justify-center rounded-2xl">
+        <Icon className="size-6" />
       </div>
       <h3 className="text-base font-semibold tracking-tight text-foreground">
         {title}

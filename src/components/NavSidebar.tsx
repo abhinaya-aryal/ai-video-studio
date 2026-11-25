@@ -63,9 +63,9 @@ export function NavSidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-[272px] md:shrink-0 md:flex-col border-r border-border bg-sidebar/80 backdrop-blur">
+      <aside className="hidden md:flex md:w-[272px] md:shrink-0 md:flex-col border-r border-border bg-sidebar/90 bg-[radial-gradient(120%_45%_at_0%_0%,var(--glow-1),transparent_70%)] backdrop-blur">
         <div className="flex items-center gap-3 border-b border-border px-5 py-5">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-2 text-primary-foreground shadow-[0_8px_24px_-8px_var(--primary)]">
+          <div className="flow-icon flex size-9 shrink-0 items-center justify-center rounded-xl">
             <Film className="size-4" />
           </div>
           <div className="min-w-0 flex flex-col">

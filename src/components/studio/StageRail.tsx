@@ -33,9 +33,9 @@ export function StageRail() {
           <TabsTrigger
             key={stage.value}
             value={stage.value}
-            className="group/stage h-auto justify-start gap-3 rounded-xl px-3.5 py-2.5 text-left whitespace-normal data-active:bg-surface-3 data-active:text-foreground data-active:shadow-[inset_0_1px_0_#ffffff14,0_0_0_1px_var(--glow-1),0_12px_28px_-16px_var(--glow-1)]"
+            className="group/stage h-auto justify-start gap-3 rounded-xl border border-transparent px-3.5 py-2.5 text-left whitespace-normal data-active:border-primary/35 data-active:bg-surface-3 data-active:text-foreground data-active:shadow-[inset_0_1px_0_#ffffff14,0_0_0_1px_var(--glow-1),0_12px_28px_-16px_var(--glow-1)]"
           >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border-strong bg-surface-2 font-mono text-xs font-semibold text-muted-foreground transition-colors group-data-active/stage:border-primary/50 group-data-active/stage:bg-primary/15 group-data-active/stage:text-primary">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border-strong bg-surface-2 font-mono text-xs font-semibold text-muted-foreground transition-colors group-data-active/stage:flow-icon group-data-active/stage:border-transparent">
               {index + 1}
             </span>
             <span className="min-w-0 flex-1">

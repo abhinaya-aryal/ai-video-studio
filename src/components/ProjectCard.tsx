@@ -17,14 +17,19 @@ export function ProjectCard({ project, featured = false }: ProjectCardProps) {
         featured && "lg:col-span-2",
       )}
     >
-      <article className="panel panel-hover flex h-full flex-col justify-between gap-4 p-5">
-        <div className="min-w-0 space-y-2.5">
+      <article
+        className={cn(
+          "panel panel-glow panel-hover flex h-full flex-col justify-between gap-4 p-6",
+          featured && "panel-featured",
+        )}
+      >
+        <div className="relative z-10 min-w-0 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Badge variant="outline" className="text-[11px] font-mono">
               {project.aspectRatio} · {project.resolution}
             </Badge>
             {featured && (
-              <Badge variant="accent" className="text-[11px]">
+              <Badge className="prism-badge text-[11px]">
                 Latest
               </Badge>
             )}
