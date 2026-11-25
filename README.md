@@ -48,6 +48,10 @@ Configure `QWEN_API_KEY`, `QWEN_KEY_TYPE`, and `QWEN_REGION` in `.env.local`:
 
 Generated assets live under `${PROJECTS_DIR}/<slug>/`. Exporting a project rebuilds `export_kdenlive/` directly from the current scene order and active takes (plus an optional starter `project.kdenlive` timeline file and downloadable archive) so exported clips always match your latest storyboard edits without stale files.
 
+## Theme
+
+The UI uses the **Nebula** theme (`data-theme="nebula"`), with all color, surface, radius, shadow, and glow tokens defined in `src/styles/theme.css` and registered in `src/lib/theme.ts`. To add a future theme, add a sibling `[data-theme="..."]` block in `src/styles/theme.css` and register it in `src/lib/theme.ts`.
+
 ## Security Note
 
 - Store API keys **only** in `.env.local` (never in `.env.example`, SQLite, or client-side code).

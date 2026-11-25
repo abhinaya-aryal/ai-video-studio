@@ -8,6 +8,8 @@ Canonical instructions for coding agents working in this repository.
 Unified Next.js App Router application (local-first; all provider calls, OSS uploads, job polling, and downloads run server-side):
 
 - `src/app/` — Next.js App Router pages, layouts, and API route handlers (`src/app/api/*`).
+- `src/styles/theme.css` — Single theme token block (`[data-theme="nebula"]`).
+- `src/lib/theme.ts` — Theme metadata registry (`THEMES`, `ThemeId`, `DEFAULT_THEME`).
 - `src/lib/config.ts` — Lazy `zod`-validated environment configuration (`getConfig()`) and `maskApiKey()`.
 - `src/lib/storage/paths.ts` — Safe `PROJECTS_DIR` path resolution (`UnsafePathError`), slugification, project folder scaffolding, and `story.md` writer.
 - `src/db/` — SQLite via `better-sqlite3` + Drizzle ORM (`${DATA_DIR}/studio.db`) and `drizzle-kit` migrations (`drizzle/`). Stores non-secret project, element, scene, asset, job, custom model, and style preset state.
@@ -41,6 +43,7 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - **Reference cap order:** characters, then props, then locations (link order within each kind). Prompt tags use `@Image N`, matching `reference_image` order.
 - **Job statuses & limits:** `QUEUED`, `PENDING`, `RUNNING`, `DOWNLOADING`, `READY`, `FAILED`. Concurrency `<= MAX_CONCURRENT_JOBS` (default `2`). Throttling/429 retries use exponential backoff (max 3 attempts).
 - **Doc sync rule:** Every task that changes architecture, commands, or environment variables MUST update `AGENTS.md`, `README.md`, and `.env.example` in the same commit.
+- **Single theme:** Color comes from `data-theme` tokens in `src/styles/theme.css`; never add `dark:` utilities or a `.dark` block.
 
 ## Commands
 
