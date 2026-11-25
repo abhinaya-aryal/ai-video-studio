@@ -54,4 +54,26 @@ describe("nebula theme foundation", () => {
     expect(layout).toContain("data-theme={DEFAULT_THEME}");
     expect(layout).not.toContain('className="dark');
   });
+
+  it("uses semantic status tokens instead of raw palette colors", () => {
+    const roots = ["src/app", "src/components"];
+    const offenders: string[] = [];
+
+    const walk = (dir: string): string[] => {
+      const entries = readdirSync(path.join(ROOT, dir), { withFileTypes: true });
+      return entries.flatMap((entry) => {
+        const relative = path.join(dir, entry.name);
+        if (entry.isDirectory()) return walk(relative);
+        return entry.name.endsWith(".tsx") ? [relative] : [];
+      });
+    };
+
+    for (const file of roots.flatMap(walk)) {
+      if (/(?:amber|blue|emerald|red|green|zinc|indigo|slate)-\d{2,3}/.test(read(file))) {
+        offenders.push(file);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
 });

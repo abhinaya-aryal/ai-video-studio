@@ -81,7 +81,7 @@ export function AudioModeSelect({
         </SelectContent>
       </Select>
       {!nativeAudioSupported && (
-        <p className="text-[11px] text-amber-400">
+        <p className="text-[11px] text-warning">
           Selected model does not support native audio; silent output only.
         </p>
       )}
