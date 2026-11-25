@@ -2,13 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Film,
-  Layers,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import type {
   Asset,
   Project,
@@ -22,6 +16,7 @@ import {
 } from "@/components/studio/Stage1Story";
 import { Stage2Elements } from "@/components/studio/Stage2Elements";
 import { Stage3Video } from "@/components/studio/Stage3Video";
+import { StageRail } from "@/components/studio/StageRail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,13 +26,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 interface StageTabsProps {
   projectId: string;
 }
 
 type StageValue = "stage1" | "stage2" | "stage3";
+
+const STAGE_NUMBER: Record<StageValue, number> = {
+  stage1: 1,
+  stage2: 2,
+  stage3: 3,
+};
 
 export function StageTabs({ projectId }: StageTabsProps) {
   const [activeTab, setActiveTab] = useState<StageValue>("stage1");
@@ -163,104 +164,96 @@ export function StageTabs({ projectId }: StageTabsProps) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Button
-              render={<Link href="/" />}
-              variant="ghost"
-              size="icon-sm"
-              title="Back to Projects"
-            >
-              <ArrowLeft className="size-4" />
-            </Button>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {project.title}
-            </h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 pl-9">
-            <Badge variant="outline">{project.aspectRatio}</Badge>
-            <Badge variant="outline">{project.resolution}</Badge>
-            <Badge variant="secondary" className="font-mono text-xs">
-              {project.defaultVideoModel}
-            </Badge>
-            {hasActiveJobs && (
-              <Badge className="gap-1.5 bg-blue-950/70 text-blue-300 border-blue-800/60">
-                <Loader2 className="size-3 animate-spin" />
-                {activeJobsCount} active job{activeJobsCount === 1 ? "" : "s"}
+    <Tabs
+      value={activeTab}
+      onValueChange={(val) => {
+        if (val === "stage1" || val === "stage2" || val === "stage3") {
+          setActiveTab(val);
+        }
+      }}
+      className="space-y-6"
+    >
+      <div className="sticky top-0 z-20 -mx-8 space-y-4 border-b border-border bg-background/85 px-8 py-4 backdrop-blur lg:-mx-12 lg:px-12">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Button
+                render={<Link href="/" />}
+                variant="ghost"
+                size="icon-sm"
+                title="Back to Projects"
+                className="shrink-0"
+              >
+                <ArrowLeft className="size-4" />
+              </Button>
+              <h1 className="truncate text-2xl font-bold tracking-tight text-foreground">
+                {project.title}
+              </h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pl-9">
+              <Badge variant="outline">{project.aspectRatio}</Badge>
+              <Badge variant="outline">{project.resolution}</Badge>
+              <Badge variant="secondary" className="font-mono text-xs">
+                {project.defaultVideoModel}
               </Badge>
-            )}
+              {hasActiveJobs && (
+                <Badge variant="info" className="gap-1.5 tabular-nums">
+                  <Loader2 className="size-3 animate-spin" />
+                  {activeJobsCount} active job{activeJobsCount === 1 ? "" : "s"}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+            Stage {STAGE_NUMBER[activeTab]} of 3
           </div>
         </div>
+
+        <StageRail />
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(val) => {
-          if (val === "stage1" || val === "stage2" || val === "stage3") {
-            setActiveTab(val);
-          }
-        }}
-        className="space-y-6"
-      >
-        <TabsList className="grid w-full max-w-xl grid-cols-3">
-          <TabsTrigger value="stage1" className="gap-1.5">
-            <Sparkles className="size-3.5" />
-            1. Story & Scenes
-          </TabsTrigger>
-          <TabsTrigger value="stage2" className="gap-1.5">
-            <Layers className="size-3.5" />
-            2. Elements & Keyframes
-          </TabsTrigger>
-          <TabsTrigger value="stage3" className="gap-1.5">
-            <Film className="size-3.5" />
-            3. Video & Export
-          </TabsTrigger>
-        </TabsList>
+      <TabsContent value="stage1">
+        <Stage1Story
+          project={project}
+          elements={elements}
+          scenes={scenes}
+          warnings={warnings}
+          onProjectChange={setProject}
+          onElementsChange={setElements}
+          onScenesChange={setScenes}
+          onWarningsChange={setWarnings}
+          onNextStage={() => setActiveTab("stage2")}
+        />
+      </TabsContent>
 
-        <TabsContent value="stage1">
-          <Stage1Story
-            project={project}
-            elements={elements}
-            scenes={scenes}
-            warnings={warnings}
-            onProjectChange={setProject}
-            onElementsChange={setElements}
-            onScenesChange={setScenes}
-            onWarningsChange={setWarnings}
-            onNextStage={() => setActiveTab("stage2")}
-          />
-        </TabsContent>
+      <TabsContent value="stage2">
+        <Stage2Elements
+          project={project}
+          elements={elements}
+          scenes={scenes}
+          assets={assets}
+          jobs={jobs}
+          onRefreshProject={loadProject}
+          onRefreshJobs={refreshJobs}
+          onRetryJob={retryJob}
+          onNextStage={() => setActiveTab("stage3")}
+        />
+      </TabsContent>
 
-        <TabsContent value="stage2">
-          <Stage2Elements
-            project={project}
-            elements={elements}
-            scenes={scenes}
-            assets={assets}
-            jobs={jobs}
-            onRefreshProject={loadProject}
-            onRefreshJobs={refreshJobs}
-            onRetryJob={retryJob}
-            onNextStage={() => setActiveTab("stage3")}
-          />
-        </TabsContent>
-
-        <TabsContent value="stage3">
-          <Stage3Video
-            project={project}
-            elements={elements}
-            scenes={scenes}
-            assets={assets}
-            jobs={jobs}
-            onRefreshProject={loadProject}
-            onRefreshJobs={refreshJobs}
-            onRetryJob={retryJob}
-            onBackStage={() => setActiveTab("stage2")}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
+      <TabsContent value="stage3">
+        <Stage3Video
+          project={project}
+          elements={elements}
+          scenes={scenes}
+          assets={assets}
+          jobs={jobs}
+          onRefreshProject={loadProject}
+          onRefreshJobs={refreshJobs}
+          onRetryJob={retryJob}
+          onBackStage={() => setActiveTab("stage2")}
+        />
+      </TabsContent>
+    </Tabs>
   );
 }
