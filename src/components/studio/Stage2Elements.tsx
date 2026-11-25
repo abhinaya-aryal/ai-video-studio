@@ -72,6 +72,8 @@ export function Stage2Elements({
     [assets],
   );
 
+  const sceneIds = useMemo(() => scenes.map((s) => s.id), [scenes]);
+
   const getLatestSceneJob = (
     sceneId: string,
     role: "keyframe_first" | "keyframe_last" | "voiceover",
@@ -575,7 +577,7 @@ export function Stage2Elements({
         onOpenChange={setBatchOpen}
         projectId={project.id}
         kind="keyframes"
-        sceneIds={scenes.map((s) => s.id)}
+        sceneIds={sceneIds}
         onConfirmed={onRefreshJobs}
       />
     </div>

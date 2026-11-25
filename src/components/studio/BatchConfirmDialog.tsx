@@ -44,8 +44,11 @@ export function BatchConfirmDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const sceneIdsKey = sceneIds.join(",");
+
   useEffect(() => {
-    if (!open || sceneIds.length === 0) {
+    const targetSceneIds = sceneIdsKey ? sceneIdsKey.split(",") : [];
+    if (!open || targetSceneIds.length === 0) {
       return;
     }
 
@@ -64,7 +67,7 @@ export function BatchConfirmDialog({
           body: JSON.stringify({
             projectId,
             kind,
-            sceneIds,
+            sceneIds: targetSceneIds,
             confirm: false,
             ...(modelId ? { modelId } : {}),
           }),
@@ -75,7 +78,7 @@ export function BatchConfirmDialog({
         }
         if (active) {
           setPreview({
-            count: Number(data.count ?? sceneIds.length),
+            count: Number(data.count ?? targetSceneIds.length),
             totalSeconds: Number(data.totalSeconds ?? 0),
             resolution: String(data.resolution ?? ""),
             model: String(data.model ?? ""),
@@ -97,7 +100,7 @@ export function BatchConfirmDialog({
     return () => {
       active = false;
     };
-  }, [open, projectId, kind, sceneIds, modelId]);
+  }, [open, projectId, kind, sceneIdsKey, modelId]);
 
   const handleConfirm = async () => {
     if (sceneIds.length === 0) return;
