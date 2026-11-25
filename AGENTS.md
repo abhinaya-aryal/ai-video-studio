@@ -11,7 +11,7 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/lib/config.ts` — Lazy `zod`-validated environment configuration (`getConfig()`) and `maskApiKey()`.
 - `src/lib/storage/paths.ts` — Safe `PROJECTS_DIR` path resolution (`UnsafePathError`), slugification, project folder scaffolding, and `story.md` writer.
 - `src/db/` — SQLite via `better-sqlite3` + Drizzle ORM (`${DATA_DIR}/studio.db`) and `drizzle-kit` migrations (`drizzle/`). Stores non-secret project, element, scene, asset, job, custom model, and style preset state.
-- `src/providers/` *(planned Tasks 3–4)* — QwenCloud / DashScope text, image, video (Wan 3.0 / 2.7), TTS, temporary OSS upload, and OpenAI-compatible text adapters.
+- `src/lib/providers/` — Model capability catalog (`catalog.ts`), QwenCloud / DashScope endpoint routing (`qwen-endpoints.ts`), Wan request validation & prompt builder (`wan-payload.ts`), shared provider types (`types.ts`), and *(planned Task 4)* QwenCloud / OpenAI-compatible client adapters and temporary OSS upload.
 - `src/jobs/` *(planned Task 6)* — `globalThis` singleton background job runner started via `instrumentation.ts`.
 - `src/export/` *(planned Task 7)* — Kdenlive-ready export builder (`export_kdenlive/` + optional starter `project.kdenlive` + zip archive).
 - `tests/` — Vitest unit and integration suites (`environment: "node"`, `@/*` -> `./src/*`).
