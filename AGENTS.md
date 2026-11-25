@@ -15,7 +15,7 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/lib/refiner/story-refiner.ts` — Zod-validated story & scene refiner (`refineStoryAndScenes`), prompt polisher (`polishPrompt`), fence stripping + one-shot repair retry (`RefinerError`), and case-insensitive element name resolution (`resolveLinkedElementIds`).
 - `src/lib/jobs/` — Background job runner (`runner.ts` with `enqueueJob`, `getRunner()`, `JobRunner` concurrency/backoff/resume) and idempotent local asset persistence (`persist.ts` with `persistResult`).
 - `src/instrumentation.ts` — Next.js `register()` hook that calls `getRunner().resume()` and `getRunner().start()` on the Node.js runtime.
-- `src/export/` *(planned Task 7)* — Kdenlive-ready export builder (`export_kdenlive/` + optional starter `project.kdenlive` + zip archive).
+- `src/lib/export/kdenlive.ts` — Kdenlive-ready export builder (`rebuildKdenliveExport`, `writeKdenliveProject`, `streamExportZip`) generating `export_kdenlive/`, starter `project.kdenlive`, `story.md`, and ZIP archive stream.
 - `tests/` — Vitest unit and integration suites (`environment: "node"`, `@/*` -> `./src/*`).
 - `docs/superpowers/` — Design spec and implementation plan (read-only reference).
 - Runtime directories (gitignored): `${DATA_DIR}` (`./data`) and `${PROJECTS_DIR}` (`./projects/<slug>/`).
