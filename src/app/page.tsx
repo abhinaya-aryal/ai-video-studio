@@ -212,7 +212,7 @@ export default function ProjectsDashboardPage() {
       <PageHeader
         eyebrow="Workspace"
         title={<span className="prism-text">Projects</span>}
-        description="Manage multi-scene stories, consistent element libraries, and Kdenlive exports."
+        description="Manage multi-scene stories, consistent element libraries, and a flat media folder ready for Kdenlive."
         actions={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger

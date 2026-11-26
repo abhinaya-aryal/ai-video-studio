@@ -29,7 +29,7 @@ import {
   BatchConfirmDialog,
   type SceneUploadsPayload,
 } from "@/components/studio/BatchConfirmDialog";
-import { ExportPanel } from "@/components/studio/ExportPanel";
+import { ProjectAssetsPanel } from "@/components/studio/ProjectAssetsPanel";
 import { ShotStrip } from "@/components/studio/ShotStrip";
 import { TakeHistory } from "@/components/studio/TakeHistory";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,7 @@ interface Stage3VideoProps {
   scenes: Scene[];
   assets: Asset[];
   jobs: Job[];
+  media: { dir: string; files: string[] };
   onRefreshProject: () => Promise<void>;
   onRefreshJobs: () => Promise<void>;
   onRetryJob: (jobId: string) => Promise<void>;
@@ -121,7 +122,7 @@ function toSceneUploadsPayload(
 /**
  * Stage 3 Studio view: ShotStrip overview, per-scene video generation with
  * MediaModePicker, dropped-elements notices, TakeHistory, batch rendering,
- * and Kdenlive ExportPanel.
+ * and the flat project assets panel.
  */
 export function Stage3Video({
   project,
@@ -129,6 +130,7 @@ export function Stage3Video({
   scenes,
   assets,
   jobs,
+  media,
   onRefreshProject,
   onRefreshJobs,
   onRetryJob,
@@ -547,8 +549,8 @@ export function Stage3Video({
               Video Clips &amp; Shot Review
             </h2>
             <p className="text-sm text-muted-foreground">
-              Generate per-scene video clips, switch active takes, and assemble
-              your Kdenlive export.
+              Generate per-scene video clips, switch active takes, and get every take as a
+              flat file in your project folder.
             </p>
           </div>
 
@@ -813,7 +815,7 @@ export function Stage3Video({
         </div>
       )}
 
-      <ExportPanel project={project} />
+      <ProjectAssetsPanel project={project} media={media} />
 
       <BatchConfirmDialog
         open={batchOpen}

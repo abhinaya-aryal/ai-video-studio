@@ -11,7 +11,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "AI Video Studio",
   description:
-    "Local-first AI Video Studio with Consistent Element Library and Kdenlive exports",
+    "Local-first AI Video Studio with Consistent Element Library and flat Kdenlive-ready assets",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

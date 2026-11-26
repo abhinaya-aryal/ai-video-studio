@@ -21,7 +21,6 @@ const CONTENT_TYPES: Record<string, string> = {
   ".wav": "audio/wav",
   ".md": "text/markdown; charset=utf-8",
   ".json": "application/json; charset=utf-8",
-  ".kdenlive": "application/xml; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
 };
 

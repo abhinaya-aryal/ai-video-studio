@@ -218,7 +218,7 @@ describe("SQLite database, migrations, and safe project storage", () => {
     expect(existsSync(dirs.root)).toBe(true);
     expect(existsSync(dirs.elements)).toBe(true);
     expect(existsSync(dirs.scenes)).toBe(true);
-    expect(existsSync(dirs.exportDir)).toBe(true);
+    expect(existsSync(path.join(dirs.root, "export_kdenlive"))).toBe(false);
 
     const storyPath = writeStoryMarkdown("my-short", "# My Short\n\nRain.");
     expect(storyPath).toBe(path.join(dirs.root, "story.md"));

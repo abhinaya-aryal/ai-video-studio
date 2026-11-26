@@ -46,6 +46,10 @@ export function StageTabs({ projectId }: StageTabsProps) {
   const [elements, setElements] = useState<ReferenceElement[]>([]);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [media, setMedia] = useState<{ dir: string; files: string[] }>({
+    dir: "",
+    files: [],
+  });
   const [warnings, setWarnings] = useState<RefineWarning[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +71,14 @@ export function StageTabs({ projectId }: StageTabsProps) {
       setElements(Array.isArray(data.elements) ? data.elements : []);
       setScenes(Array.isArray(data.scenes) ? data.scenes : []);
       setAssets(Array.isArray(data.assets) ? data.assets : []);
+      setMedia(
+        data.media && typeof data.media.dir === "string"
+          ? {
+              dir: data.media.dir,
+              files: Array.isArray(data.media.files) ? data.media.files : [],
+            }
+          : { dir: "", files: [] },
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load project");
@@ -91,6 +103,14 @@ export function StageTabs({ projectId }: StageTabsProps) {
           setElements(Array.isArray(data.elements) ? data.elements : []);
           setScenes(Array.isArray(data.scenes) ? data.scenes : []);
           setAssets(Array.isArray(data.assets) ? data.assets : []);
+          setMedia(
+            data.media && typeof data.media.dir === "string"
+              ? {
+                  dir: data.media.dir,
+                  files: Array.isArray(data.media.files) ? data.media.files : [],
+                }
+              : { dir: "", files: [] },
+          );
           setError(null);
         }
       } catch (err) {
@@ -254,6 +274,7 @@ export function StageTabs({ projectId }: StageTabsProps) {
           scenes={scenes}
           assets={assets}
           jobs={jobs}
+          media={media}
           onRefreshProject={loadProject}
           onRefreshJobs={refreshJobs}
           onRetryJob={retryJob}

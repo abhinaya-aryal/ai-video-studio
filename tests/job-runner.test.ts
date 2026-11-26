@@ -303,6 +303,10 @@ describe("JobRunner and persistResult", () => {
     expect(existsSync(absFile)).toBe(true);
     expect(new Uint8Array(readFileSync(absFile))).toEqual(fakeVideoBytes);
 
+    const flatClip = path.join(projectsDir, "neon-city", "test_clip_v1.mp4");
+    expect(existsSync(flatClip)).toBe(true);
+    expect(new Uint8Array(readFileSync(flatClip))).toEqual(fakeVideoBytes);
+
     const updatedScene = db
       .select()
       .from(scenes)
@@ -405,6 +409,25 @@ describe("JobRunner and persistResult", () => {
       .where(eq(referenceElements.id, "elem-1"))
       .get()!;
     expect(element.activeImagePath).toBe(secondAsset.filePath);
+
+    expect(
+      existsSync(
+        path.join(
+          projectsDir,
+          "neon-city",
+          "element_character_kira-vance_v1.png",
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      existsSync(
+        path.join(
+          projectsDir,
+          "neon-city",
+          "element_character_kira-vance_v2.png",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("claims a queued job atomically so two runners cannot submit it twice", async () => {

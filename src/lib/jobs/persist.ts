@@ -18,6 +18,7 @@ import {
   resolveInsideProjects,
   slugify,
 } from "@/lib/storage/paths";
+import { syncProjectMedia } from "@/lib/storage/project-media";
 import { recordUsage } from "@/lib/usage/record";
 
 export type ResultSource =
@@ -409,6 +410,17 @@ export async function persistResult(
     } catch {
       // Best-effort cleanup: a missing or unsafe old file must not fail the job.
     }
+  }
+
+  try {
+    await syncProjectMedia(job.projectId);
+  } catch (err) {
+    // The asset row and nested file are already committed. A failed flat copy
+    // must not fail an otherwise successful job; the next job re-syncs.
+    console.warn(
+      `Failed to sync flat project media for ${job.projectId}:`,
+      err,
+    );
   }
 
   return persistedAsset;

@@ -18,8 +18,8 @@ const STAGES = [
   },
   {
     value: "stage3",
-    label: "Video & Export",
-    hint: "Clips, takes, Kdenlive",
+    label: "Video & Assets",
+    hint: "Clips, takes, media folder",
     icon: Film,
   },
 ] as const;

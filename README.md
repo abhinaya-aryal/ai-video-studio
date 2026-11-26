@@ -1,6 +1,6 @@
 # AI Video Studio (`ai-video-web`)
 
-A local-first AI video studio built with Next.js App Router, SQLite, and Alibaba Cloud Model Studio (Qwen and Wan). It ships a guided three-stage storyboard studio, a consistent element library, a Quick Clip workspace, and Kdenlive-ready exports. All provider calls, uploads, job polling, and downloads run on your machine.
+A local-first AI video studio built with Next.js App Router, SQLite, and Alibaba Cloud Model Studio (Qwen and Wan). It ships a guided three-stage storyboard studio, a consistent element library, a Quick Clip workspace, and a flat media folder ready for Kdenlive. All provider calls, uploads, job polling, and downloads run on your machine.
 
 The app also contains a complete in-site manual. Press `?` (or use **How it works** in the sidebar) for the field-by-field workflow guide.
 
@@ -41,7 +41,7 @@ Open `http://localhost:3000`. Configuration is read lazily on the server, so res
 | Variable | Required | Default | Accepted values | Purpose |
 | --- | --- | --- | --- | --- |
 | `DATA_DIR` | No | `./data` | Any writable path, absolute or relative to the repo root | Directory for `studio.db` (SQLite metadata). Changing it after first run points the app at a new, empty database unless you move the old file. |
-| `PROJECTS_DIR` | No | `~/projects` | Any writable path. `~` expands to your home directory; relative paths resolve from the repo root | Root for project media. Each project gets `<slug>/` containing `story.md`, `elements/`, `scenes/`, and `export_kdenlive/`. Changing it hides existing media from the app until you move the folders. |
+| `PROJECTS_DIR` | No | `~/projects` | Any writable path. `~` expands to your home directory; relative paths resolve from the repo root | Root for project media. Each project gets `<slug>/` containing `story.md`, flat media files, `elements/`, and `scenes/`. Changing it hides existing media from the app until you move the folders. |
 
 `PROJECTS_DIR` points outside the repository by default, so generated footage stays out of git. Set it to an absolute path if you want a different drive, for example `PROJECTS_DIR=/mnt/media/ai-video`. Creating a project whose slug already exists on disk adds a short suffix instead of writing into that folder.
 
@@ -175,11 +175,11 @@ Setup once, then follow three stages per project:
 1. **Create a project** with an idea, style preset, aspect ratio, resolution, and default video model.
 2. **Stage 1, Story & Scenes:** write the rough idea, run Auto-Refine, then edit the story, Style Bible, elements, and scene prompts.
 3. **Stage 2, Elements & Keyframes:** generate or upload one image per element, generate first and last keyframes, and optionally add TTS voiceover.
-4. **Stage 3, Video & Export:** choose a media mode per scene, generate clips, promote the best take, then rebuild and download the Kdenlive export.
+4. **Stage 3, Video & Assets:** choose a media mode per scene, generate clips, promote the best take, then open the project folder and drag the flat files into Kdenlive.
 
 Quick Clip skips the project and generates one shot with the same models and media rules.
 
-The in-site guide covers every field, mode, status, limit, and export artifact. It opens with `?` or the sidebar button.
+The in-site guide covers every field, mode, status, limit, and asset artifact. It opens with `?` or the sidebar button.
 
 ## Models
 
@@ -237,17 +237,18 @@ Polish returns three fields. Quick Clip appends Camera and Audio lines to the pr
 | Path | Contents |
 | --- | --- |
 | `data/studio.db` | Projects, elements, scenes, asset records, jobs, custom models, and style presets. |
-| `~/projects/<slug>/story.md` | The written treatment for the export. |
-| `~/projects/<slug>/elements/` | Generated and uploaded element images. |
-| `~/projects/<slug>/scenes/` | Keyframes, clips, and voiceover files. |
-| `~/projects/<slug>/export_kdenlive/` | The latest Kdenlive export, including `project.kdenlive` and `story.md`. |
+| `~/projects/<slug>/story.md` | The written treatment, rewritten on every media sync. |
+| `~/projects/<slug>/<flat media files>` | One flat copy of every generated keyframe, clip, voiceover, and element image, ready to drag into Kdenlive. |
+| `~/projects/<slug>/.project-media.json` | Manifest of the flat files the app wrote, used to prune replaced assets. |
+| `~/projects/<slug>/elements/` | Internal source folder for generated and uploaded element images. |
+| `~/projects/<slug>/scenes/` | Internal source folder for keyframes, clips, and voiceover files. |
 | `~/projects/_quick-clips/` | Hidden project that stores Quick Clip jobs and media. |
 
 Back up `DATA_DIR` and `PROJECTS_DIR` together while the server is stopped. Restoring only the database breaks media paths. Jobs resume automatically when the server starts.
 
-## Kdenlive export
+## Project media folder
 
-**Rebuild Export** rewrites `export_kdenlive/` from the current scene order and active takes. It copies each scene's active clip and voiceover, writes `story.md`, and generates a starter `project.kdenlive` timeline when clips exist. Scenes without an active clip are listed in the panel so you can generate them before shipping. **Download ZIP** packages the latest rebuild.
+Every generated keyframe, clip, voiceover, and element image is copied into `PROJECTS_DIR/<slug>/` as a flat file as soon as its job finishes, and element uploads land there too. Filenames combine the scene slug and asset version, for example `01-lights-camera_clip_v2.mp4` or `element_character_kira-voss_v1.png`, so alternate takes are never overwritten. `story.md` and `.project-media.json` are refreshed at the same time. Open the folder in your file manager and drag the assets into Kdenlive to build the edit yourself. The app only deletes flat files it wrote and that no longer match an asset row, such as a replaced element image.
 
 ## Security
 
@@ -269,5 +270,5 @@ Back up `DATA_DIR` and `PROJECTS_DIR` together while the server is stopped. Rest
 | Job stays `RUNNING` for a long time | Provider is still generating | Wait. Reference-image generation and video can take several minutes. Image tasks that stay pending or running beyond 15 minutes are failed, and video tasks after 60 minutes. Do not resubmit. |
 | Jobs stay `QUEUED` and nothing starts | A crashed or duplicate process left jobs in `DOWNLOADING` | Stop every extra `next dev` / `next start` process for the same `DATA_DIR`. The runner repairs stuck jobs on the next tick. |
 | Output has no audio | The selected model does not support native audio | Pick a native-audio video model, or keep `silent` audio mode. |
-| Export lists missing scenes | Those scenes have no active take | Generate a clip and click **Set Active**, then rebuild. |
+| Media missing from the project folder | The flat sync could not copy a file | Generate or upload another asset to trigger a re-sync, and check that `PROJECTS_DIR` is writable. |
 | Configuration error on startup | A value violates the Zod schema | Check ranges for `MAX_CONCURRENT_JOBS`, `JOB_POLL_INTERVAL_MS`, and required OpenAI-compatible fields. |

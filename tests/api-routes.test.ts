@@ -188,7 +188,7 @@ describe("API Route Handlers", () => {
     expect(existsSync(projectDir)).toBe(true);
     expect(existsSync(path.join(projectDir, "elements"))).toBe(true);
     expect(existsSync(path.join(projectDir, "scenes"))).toBe(true);
-    expect(existsSync(path.join(projectDir, "export_kdenlive"))).toBe(true);
+    expect(existsSync(path.join(projectDir, "export_kdenlive"))).toBe(false);
   });
 
   it("DELETE /api/projects/:id removes DB rows and leaves the project folder on disk", async () => {
@@ -362,6 +362,15 @@ describe("API Route Handlers", () => {
 
     const firstAbs = path.join(process.env.PROJECTS_DIR!, json.filePath);
     expect(existsSync(firstAbs)).toBe(true);
+    expect(
+      existsSync(
+        path.join(
+          process.env.PROJECTS_DIR!,
+          project.slug,
+          "element_character_kira-vance_v1.png",
+        ),
+      ),
+    ).toBe(true);
 
     const secondForm = new FormData();
     secondForm.append(
@@ -390,6 +399,24 @@ describe("API Route Handlers", () => {
     expect(remainingAssets).toHaveLength(1);
     expect(remainingAssets[0].filePath).toBe(secondJson.filePath);
     expect(existsSync(firstAbs)).toBe(false);
+    expect(
+      existsSync(
+        path.join(
+          process.env.PROJECTS_DIR!,
+          project.slug,
+          "element_character_kira-vance_v1.png",
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      existsSync(
+        path.join(
+          process.env.PROJECTS_DIR!,
+          project.slug,
+          "element_character_kira-vance_v2.png",
+        ),
+      ),
+    ).toBe(true);
 
     const updatedElement = db
       .select()
@@ -550,6 +577,36 @@ describe("API Route Handlers", () => {
     };
     expect(projJson.jobs).toHaveLength(1);
     expect("requestJson" in projJson.jobs[0]).toBe(false);
+  });
+
+  it("GET /api/projects/:id includes the flat project media state", async () => {
+    const createRes = await createProject(
+      new Request("http://localhost/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Media Project", roughIdea: "Assets." }),
+      }),
+    );
+    const { project } = (await createRes.json()) as {
+      project: { id: string; slug: string };
+    };
+
+    const projectDir = path.join(process.env.PROJECTS_DIR!, project.slug);
+    const files = ["01_open_clip_v1.mp4", "element_character_kira_v1.png"];
+    writeFileSync(
+      path.join(projectDir, ".project-media.json"),
+      JSON.stringify({ version: 1, files }),
+    );
+
+    const res = await getProject(
+      new Request(`http://localhost/api/projects/${project.id}`),
+      { params: Promise.resolve({ id: project.id }) },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      media: { dir: string; files: string[] };
+    };
+    expect(json.media).toEqual({ dir: projectDir, files });
   });
 
   it("GET /api/files/[...path] supports Range requests (206) and ETag revalidation (304)", async () => {

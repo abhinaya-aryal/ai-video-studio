@@ -81,7 +81,6 @@ export interface ProjectDirs {
   root: string;
   elements: string;
   scenes: string;
-  exportDir: string;
 }
 
 /** Create and return the directory layout for a project under `PROJECTS_DIR/<slug>`. */
@@ -89,13 +88,11 @@ export function ensureProjectDirs(slug: string): ProjectDirs {
   const root = resolveProjectRoot(slug);
   const elements = path.join(root, "elements");
   const scenes = path.join(root, "scenes");
-  const exportDir = path.join(root, "export_kdenlive");
 
   mkdirSync(elements, { recursive: true });
   mkdirSync(scenes, { recursive: true });
-  mkdirSync(exportDir, { recursive: true });
 
-  return { root, elements, scenes, exportDir };
+  return { root, elements, scenes };
 }
 
 /** Write `story.md` inside `PROJECTS_DIR/<slug>/story.md` and return its absolute path. */

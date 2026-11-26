@@ -24,20 +24,20 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     group: "Start here",
     title: "Build a video in three stages",
     summary:
-      "AI Video Studio turns a rough idea into a storyboard, a consistent element library, generated clips, and a Kdenlive-ready export. Everything runs locally against your own API keys, and every screen in the app is covered by this manual.",
+      "AI Video Studio turns a rough idea into a storyboard, a consistent element library, and generated clips, then mirrors every asset into your project folder as flat files for Kdenlive. Everything runs locally against your own API keys, and every screen in the app is covered by this manual.",
     bullets: [
       "Stage 1 shapes the story, style, element roster, and scene breakdown.",
       "Stage 2 locks the look with element images, keyframes, and voiceover.",
-      "Stage 3 generates clips, manages takes, and exports an editable project.",
+      "Stage 3 generates clips, manages takes, and mirrors every asset into the project folder.",
     ],
     details: [
       {
         label: "Projects",
-        text: "The home page lists every story project. A project owns one video: its story, elements, scenes, assets, jobs, and exports.",
+        text: "The home page lists every story project. A project owns one video: its story, elements, scenes, assets, and jobs.",
       },
       {
         label: "Storyboard Studio",
-        text: "Opening a project shows three tabs: Story & Scenes, Elements & Keyframes, and Video & Export. You can move between them at any time; nothing is lost when you switch.",
+        text: "Opening a project shows three tabs: Story & Scenes, Elements & Keyframes, and Video & Assets. You can move between them at any time; nothing is lost when you switch.",
       },
       {
         label: "Quick Clip",
@@ -94,7 +94,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Storage paths",
-        text: "DATA_DIR defaults to data and holds studio.db. PROJECTS_DIR defaults to ~/projects and holds one folder per project slug, including story.md, elements/, scenes/, and export_kdenlive/.",
+        text: "DATA_DIR defaults to data and holds studio.db. PROJECTS_DIR defaults to ~/projects and holds one folder per project slug, including story.md, flat media files, elements/, and scenes/.",
       },
       {
         label: "Secrets",
@@ -354,7 +354,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     details: [
       {
         label: "Title",
-        text: "Editable inline. It names the scene in the keyframe list, take history, shot strip, and export warnings.",
+        text: "Editable inline. It names the scene in the keyframe list, take history, shot strip, and asset filenames.",
       },
       {
         label: "Visual Prompt",
@@ -480,7 +480,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     bullets: [
       "Enter the exact narration or dialogue text; generation is disabled without it.",
       "Voice is optional; leave it blank for the model default, or name a voice such as Cherry.",
-      "Generated audio becomes the scene's active audio asset and is included in exports.",
+      "Generated audio becomes the scene's active audio asset and is mirrored into the project folder.",
     ],
     details: [
       {
@@ -497,7 +497,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Active audio",
-        text: "The newest successful voiceover becomes active. Export copies the active voiceover per scene next to its clip.",
+        text: "The newest successful voiceover becomes active. Every take is also mirrored flat into the project folder with a version suffix.",
       },
     ],
     where: "Project → Elements & Keyframes → Optional Voiceover",
@@ -530,7 +530,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Take History",
-        text: "Every successful clip is a take with a version label such as v1, v2, a timestamp, and a preview. Set Active chooses the take used by the shot strip and export.",
+        text: "Every successful clip is a take with a version label such as v1, v2, a timestamp, and a preview. Set Active chooses the take used by the shot strip, while every take is mirrored into the project folder.",
       },
       {
         label: "Dropped elements",
@@ -541,7 +541,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
         text: "Status badges move through QUEUED, PENDING, RUNNING, DOWNLOADING, READY, and FAILED. Failed jobs show the error and a Retry button.",
       },
     ],
-    where: "Project → Video & Export",
+    where: "Project → Video & Assets",
     href: "/",
     cta: "Open a project",
   },
@@ -587,49 +587,45 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
     ],
     note: "If Stage 3 says first/last frame mode requires an active First Keyframe, generate one in Stage 2, upload a first frame in Stage 3, or switch the scene to another mode.",
-    where: "Project → Video & Export → Media Mode",
+    where: "Project → Video & Assets → Media Mode",
     href: "/",
     cta: "Open a project",
   },
   {
-    id: "export",
+    id: "assets",
     group: "Ship",
-    title: "Export to Kdenlive",
+    title: "Project assets folder",
     summary:
-      "Export assembles the current storyboard into an editable Kdenlive project. It always rebuilds from active takes and current scene order, so the folder matches what you see in the studio.",
+      "Every generated keyframe, clip, voiceover, and element image is mirrored into your project folder as a flat file as soon as it is created. There is no Kdenlive project to import and no ZIP to unpack: open the folder and drag the assets into Kdenlive.",
     bullets: [
-      "Rebuild Export rewrites export_kdenlive/ and removes stale files.",
-      "Missing active clips are listed by scene title before you download.",
-      "Download ZIP packages the latest export; project.kdenlive downloads on its own too.",
+      "PROJECTS_DIR/<slug>/ holds one flat copy of every image, video, and audio asset.",
+      "Filenames include the scene slug and a version, so every take stays available.",
+      "Files appear automatically after each generation; replaced element images are pruned.",
     ],
     details: [
       {
-        label: "Rebuild Export",
-        text: "Copies each scene's active video clip and active voiceover into PROJECTS_DIR/<slug>/export_kdenlive/, writes story.md, and generates a starter project.kdenlive timeline when clips exist.",
+        label: "Automatic sync",
+        text: "After a job finishes or an element upload lands, the app copies each asset into PROJECTS_DIR/<slug>/ and refreshes the .project-media.json manifest. story.md is rewritten at the same time.",
       },
       {
-        label: "Export folder",
-        text: "The panel prints the absolute export directory. Media names follow scene order so the timeline and the files stay aligned.",
+        label: "Filenames",
+        text: "Scene media looks like 01-lights-camera_clip_v2.mp4, 01-lights-camera_keyframe-first_v1.png, or 01-lights-camera_voiceover_v1.mp3. Element images look like element_character_kira-voss_v1.png. Scene slugs do not change on reorder, so files keep their names.",
       },
       {
-        label: "Missing clips",
-        text: "Scenes without an active video clip are listed by title. The export still succeeds with the available media, but those scenes are absent from the timeline.",
+        label: "Every take",
+        text: "Alternate takes are kept with their version number instead of being overwritten. Pick whichever file you want in your edit.",
       },
       {
-        label: "Exported files",
-        text: "The panel lists every file in the export, including the .kdenlive file, story.md, clips, and voiceovers. Use the file badges to confirm what shipped.",
+        label: "Cleanup",
+        text: "The app only deletes files it wrote and that no longer match an asset row, such as an element image you replaced. Files you add to the folder yourself are left alone.",
       },
       {
-        label: "Download ZIP",
-        text: "Streams a ZIP of export_kdenlive/ named <slug>-kdenlive.zip. The ZIP reflects the last rebuild; rebuild after changing takes or scene order.",
-      },
-      {
-        label: "Finish in Kdenlive",
-        text: "Import project.kdenlive, then add titles, music, grading, and transitions. story.md travels with the project as a shot-by-shot reference.",
+        label: "Your edit",
+        text: "Import the flat files into Kdenlive and build the timeline your way. story.md stays beside them as a shot-by-shot reference.",
       },
     ],
-    note: "Rebuild after every take switch, reorder, or voiceover change; the ZIP is a snapshot, not a live link.",
-    where: "Project → Video & Export → Kdenlive Export",
+    note: "The scenes/ and elements/ subfolders remain the studio's internal storage. The flat root copies are the ones to use in Kdenlive.",
+    where: "Project → Video & Assets → Project Assets",
     href: "/",
     cta: "Open a project",
   },
@@ -782,7 +778,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       "Everything the studio knows lives in two local locations. Backing them up copies your whole studio; deleting them resets it. This step also defines the terms used across the app.",
     bullets: [
       "data/studio.db holds projects, elements, scenes, assets, jobs, custom models, and presets.",
-      "projects/<slug>/ holds story.md, elements/, scenes/, and export_kdenlive/.",
+      "projects/<slug>/ holds story.md, flat media files, elements/, and scenes/.",
       "Press ? to toggle this guide, and use the left and right arrow keys to move between steps.",
     ],
     details: [
@@ -792,7 +788,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Project folders",
-        text: "PROJECTS_DIR/<slug>/story.md is the written treatment. elements/ holds element images and uploads. scenes/ holds keyframes, clips, and voiceovers. export_kdenlive/ holds the latest export.",
+        text: "PROJECTS_DIR/<slug>/story.md is the written treatment. The project root also holds one flat copy of every keyframe, clip, voiceover, and element image. elements/ and scenes/ are the studio's internal source folders.",
       },
       {
         label: "Quick clips",
@@ -812,7 +808,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Glossary",
-        text: "Style Bible: the project's visual rules. Element: a recurring character, prop, or location. Sheet: the canonical image for an element. Keyframe: a still that anchors a shot. Take: one generated clip version; the active take is what exports. Job: a queued provider request.",
+        text: "Style Bible: the project's visual rules. Element: a recurring character, prop, or location. Sheet: the canonical image for an element. Keyframe: a still that anchors a shot. Take: one generated clip version; the active take is what the shot strip uses. Every take is mirrored into the project folder. Job: a queued provider request.",
       },
       {
         label: "Defaults",

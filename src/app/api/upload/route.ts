@@ -19,6 +19,7 @@ import {
   resolveInsideProjects,
   slugify,
 } from "@/lib/storage/paths";
+import { syncProjectMedia } from "@/lib/storage/project-media";
 
 function sanitizeExtension(filename: string): string {
   const ext = path.extname(filename).toLowerCase();
@@ -155,6 +156,14 @@ export async function POST(req: Request) {
           }
         }
       }
+    }
+
+    try {
+      await syncProjectMedia(project.id);
+    } catch (err) {
+      // The upload and asset row are already written; a flat-copy failure must
+      // not reject the upload, and the next job or upload re-syncs.
+      console.warn(`Failed to sync flat project media for ${project.id}:`, err);
     }
 
     return apiOk(

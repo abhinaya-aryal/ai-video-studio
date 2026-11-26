@@ -16,6 +16,7 @@ import {
   parseJsonBody,
   requireProject,
 } from "@/lib/api/route-helpers";
+import { readProjectMedia } from "@/lib/storage/project-media";
 
 const UpdateProjectSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -70,6 +71,7 @@ export async function GET(_req: Request, context: RouteContext) {
       scenes: projectScenes,
       assets: projectAssets,
       jobs: projectJobs,
+      media: readProjectMedia(id),
     });
   } catch (err) {
     return handleRouteError(err);

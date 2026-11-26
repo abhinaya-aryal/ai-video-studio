@@ -69,7 +69,7 @@ export function GuideDialog({ open, onOpenChange }: GuideDialogProps) {
               Studio guide
             </p>
             <p className="text-xs text-muted-foreground">
-              The recommended path from rough idea to Kdenlive export
+              The recommended path from rough idea to Kdenlive-ready assets
             </p>
           </div>
         </header>

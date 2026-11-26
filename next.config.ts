@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   devIndicators: {
     position: "bottom-right",
   },
-  serverExternalPackages: ["better-sqlite3", "archiver"],
+  serverExternalPackages: ["better-sqlite3"],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
