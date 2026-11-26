@@ -72,7 +72,7 @@ Models are not configured through environment variables. The app reads the model
 
 | Variable | Required | Default | Accepted values | Purpose |
 | --- | --- | --- | --- | --- |
-| `MAX_CONCURRENT_JOBS` | No | `2` | Integer 1–16 | Maximum provider jobs running at once. Raise it for faster batches; lower it if you hit rate limits. |
+| `MAX_CONCURRENT_JOBS` | No | `3` | Integer 1–16 | Maximum provider jobs running at once. Raise it for faster batches; lower it if you hit rate limits. |
 | `JOB_POLL_INTERVAL_MS` | No | `10000` | Integer 1000–120000 | How often the server asks the provider for task status. The browser polls the local job list every 3 seconds regardless. Lower values detect completion sooner and make more provider requests. |
 
 ### Routing rules
@@ -266,7 +266,7 @@ Back up `DATA_DIR` and `PROJECTS_DIR` together while the server is stopped. Rest
 | `409 MODEL_NOT_SELECTED` | No model is chosen for that role | Open Settings → Models, pick a model or turn on Auto for the role. |
 | `409 MODEL_UNAVAILABLE` | The chosen model is no longer offered to the token | Sync, then pick an available model. |
 | Sync returns zero models | The token has no model access, or the key/region pair is wrong | Check Provider Status and the key type. |
-| Job stays `RUNNING` for a long time | Provider is still generating | Wait. Video jobs can take several minutes. Do not resubmit. |
+| Job stays `RUNNING` for a long time | Provider is still generating | Wait. Reference-image generation and video can take several minutes. Image tasks that stay pending or running beyond 15 minutes are failed, and video tasks after 60 minutes. Do not resubmit. |
 | Jobs stay `QUEUED` and nothing starts | A crashed or duplicate process left jobs in `DOWNLOADING` | Stop every extra `next dev` / `next start` process for the same `DATA_DIR`. The runner repairs stuck jobs on the next tick. |
 | Output has no audio | The selected model does not support native audio | Pick a native-audio video model, or keep `silent` audio mode. |
 | Export lists missing scenes | Those scenes have no active take | Generate a clip and click **Set Active**, then rebuild. |

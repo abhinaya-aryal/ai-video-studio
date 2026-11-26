@@ -32,6 +32,8 @@ import {
   selectReferenceElements,
 } from "@/lib/providers/wan-payload";
 import { resolveInsideProjects } from "@/lib/storage/paths";
+import { stableSeed } from "@/lib/studio/seed";
+import { paletteForPreset } from "@/lib/studio/style-palette";
 
 /** Per-scene media uploaded in Stage 3 (project-relative paths or URLs). */
 /**
@@ -378,7 +380,7 @@ export interface SceneKeyframeOptions {
 export async function buildSceneKeyframeRequest(
   scene: Scene,
   elements: ReferenceElement[],
-  project: Pick<Project, "styleBible" | "aspectRatio">,
+  project: Pick<Project, "styleBible" | "aspectRatio" | "stylePresetId">,
   cap: ModelCapability,
   options: SceneKeyframeOptions = {},
   deps: Pick<SceneVideoRequestDeps, "prepareImage"> = {},
@@ -433,6 +435,13 @@ export async function buildSceneKeyframeRequest(
       referenceImages,
       size,
       n: 1,
+      thinkingMode: false,
+      seed: stableSeed(
+        "keyframe",
+        scene.id,
+        options.position ?? "first",
+      ),
+      colorPalette: paletteForPreset(project.stylePresetId),
       needsOssHeader,
       params: {
         position: options.position ?? "first",

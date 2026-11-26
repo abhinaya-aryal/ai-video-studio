@@ -58,7 +58,7 @@ const EnvSchema = z
     OPENAI_COMPAT_BASE_URL: z.string().url().optional(),
     OPENAI_COMPAT_API_KEY: z.string().optional(),
     OPENAI_COMPAT_MODEL: z.string().min(1).optional(),
-    MAX_CONCURRENT_JOBS: z.coerce.number().int().min(1).max(16).default(2),
+    MAX_CONCURRENT_JOBS: z.coerce.number().int().min(1).max(16).default(3),
     JOB_POLL_INTERVAL_MS: z.coerce
       .number()
       .int()

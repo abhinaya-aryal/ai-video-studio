@@ -36,6 +36,12 @@ export const BASE_BACKOFF_MS = 1000;
  * released back to the queue. Provider calls time out well before this.
  */
 export const CLAIM_STALE_MS = 5 * 60 * 1000;
+/** Maximum time a provider task may stay pending/running before it is failed. */
+export const MAX_TASK_AGE_MS: Record<JobModality, number> = {
+  image: 15 * 60 * 1000,
+  audio: 15 * 60 * 1000,
+  video: 60 * 60 * 1000,
+};
 
 export interface PreparedVideoRequest {
   modality?: "video";
@@ -52,6 +58,9 @@ export interface PreparedImageRequest {
   size?: string;
   n?: number;
   negativePrompt?: string;
+  thinkingMode?: boolean;
+  seed?: number;
+  colorPalette?: Array<{ hex: string; ratio: string }>;
   needsOssHeader?: boolean;
   params?: Record<string, unknown>;
 }
@@ -173,6 +182,12 @@ async function defaultSubmit(
       n: typeof req.n === "number" ? req.n : undefined,
       negativePrompt:
         typeof req.negativePrompt === "string" ? req.negativePrompt : undefined,
+      thinkingMode:
+        typeof req.thinkingMode === "boolean" ? req.thinkingMode : undefined,
+      seed: typeof req.seed === "number" ? req.seed : undefined,
+      colorPalette: Array.isArray(req.colorPalette)
+        ? (req.colorPalette as Array<{ hex: string; ratio: string }>)
+        : undefined,
       needsOssHeader:
         typeof req.needsOssHeader === "boolean"
           ? req.needsOssHeader
@@ -314,6 +329,12 @@ export class JobRunner {
    * `RUNNING` / `QUEUED`.
    */
   resume(): void {
+    // At process start no submission can be in flight, so every claim is stale.
+    getDb()
+      .update(jobs)
+      .set({ claimedAt: null })
+      .where(eq(jobs.status, "QUEUED"))
+      .run();
     this.reconcileJobs();
   }
 
@@ -355,6 +376,23 @@ export class JobRunner {
       }
 
       if (job.externalTaskId) {
+        const maxAge = MAX_TASK_AGE_MS[job.modality] ?? 15 * 60 * 1000;
+        if (now - job.updatedAt > maxAge) {
+          db.update(jobs)
+            .set({
+              status: "FAILED",
+              errorCode: "TaskTimeout",
+              errorMessage: `Provider task did not finish within ${Math.round(
+                maxAge / 60000,
+              )} minutes.`,
+              claimedAt: null,
+              updatedAt: now,
+            })
+            .where(eq(jobs.id, job.id))
+            .run();
+          continue;
+        }
+
         if (job.status === "DOWNLOADING") {
           db.update(jobs)
             .set({ status: "RUNNING", updatedAt: now })

@@ -533,6 +533,63 @@ describe("JobRunner and persistResult", () => {
     expect(updated.status).toBe("QUEUED");
   });
 
+  it("releases queued claims left by a dead process on resume", () => {
+    seedProjectAndScene();
+    const db = getDb();
+
+    const job = enqueueJob({
+      projectId: "proj-1",
+      elementId: "elem-1",
+      modality: "image",
+      role: "element_sheet",
+      modelId: "wan2.7-image-pro",
+      request: { prompt: "Kira portrait" },
+    });
+    db.update(jobs)
+      .set({ claimedAt: Date.now() })
+      .where(eq(jobs.id, job.id))
+      .run();
+
+    const runner = new JobRunner({});
+    runner.resume();
+
+    const updated = db.select().from(jobs).where(eq(jobs.id, job.id)).get()!;
+    expect(updated.status).toBe("QUEUED");
+    expect(updated.claimedAt).toBeNull();
+  });
+
+  it("fails an image task that has been pending longer than the image budget", async () => {
+    seedProjectAndScene();
+    const db = getDb();
+
+    const job = enqueueJob({
+      projectId: "proj-1",
+      elementId: "elem-1",
+      modality: "image",
+      role: "element_sheet",
+      modelId: "wan2.7-image-pro",
+      request: { prompt: "Kira portrait" },
+    });
+    db.update(jobs)
+      .set({ status: "PENDING", externalTaskId: "ext-image-1" })
+      .where(eq(jobs.id, job.id))
+      .run();
+
+    const poll = vi.fn<NonNullable<RunnerDeps["poll"]>>(async () => ({
+      status: "RUNNING",
+      resultUrls: [],
+    }));
+
+    vi.setSystemTime(new Date(Date.now() + 16 * 60 * 1000));
+    const runner = new JobRunner({ submit: vi.fn(), poll, download: vi.fn() });
+    await runner.tick();
+
+    const updated = db.select().from(jobs).where(eq(jobs.id, job.id)).get()!;
+    expect(updated.status).toBe("FAILED");
+    expect(updated.errorCode).toBe("TaskTimeout");
+    expect(poll).not.toHaveBeenCalled();
+  });
+
   it("returns a single globalThis runner instance and creates only one interval on repeated start()", () => {
     const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
 

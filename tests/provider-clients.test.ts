@@ -396,6 +396,12 @@ describe("QwenCloud client", () => {
       kind: "sync",
       urls: ["https://cdn.example.com/img1.png"],
     });
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      "https://token-plan.ap-southeast-1.maas.aliyuncs.com/api/v1/services/aigc/image-generation/generation",
+    );
+    expect(
+      new Headers(fetchFn.mock.calls[0][1]?.headers).get("x-dashscope-async"),
+    ).toBe("enable");
     expect(
       new Headers(fetchFn.mock.calls[0][1]?.headers).get(
         "x-dashscope-ossresourceresolve",
@@ -407,12 +413,30 @@ describe("QwenCloud client", () => {
       apiKey: "sk-sp-secret",
       model: "wan2.7-image-pro",
       prompt: "Rainy alley",
+      thinkingMode: false,
+      seed: 123456,
+      colorPalette: [
+        { hex: "#1F4D2E", ratio: "60.00%" },
+        { hex: "#C9A24B", ratio: "40.00%" },
+      ],
       fetchFn,
     });
     expect(asyncRes).toEqual({
       kind: "async",
       taskId: "img-task-99",
     });
+
+    const asyncBody = JSON.parse(
+      fetchFn.mock.calls[1][1]?.body as string,
+    ) as {
+      parameters?: Record<string, unknown>;
+    };
+    expect(asyncBody.parameters?.thinking_mode).toBe(false);
+    expect(asyncBody.parameters?.seed).toBe(123456);
+    expect(asyncBody.parameters?.color_palette).toEqual([
+      { hex: "#1F4D2E", ratio: "60.00%" },
+      { hex: "#C9A24B", ratio: "40.00%" },
+    ]);
   });
 
   it("synthesizeSpeech handles binary audio and JSON url responses", async () => {

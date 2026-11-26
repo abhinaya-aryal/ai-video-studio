@@ -15,6 +15,8 @@ import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
 import { resolveSlotModel } from "@/lib/providers/model-selection";
 import { buildElementImagePrompt } from "@/lib/studio/element-image";
+import { stableSeed } from "@/lib/studio/seed";
+import { paletteForPreset } from "@/lib/studio/style-palette";
 
 const ElementSheetSchema = z.object({
   projectId: z.string().trim().min(1),
@@ -71,6 +73,9 @@ export async function POST(req: Request) {
         referenceImages,
         size: input.size,
         n: 1,
+        thinkingMode: false,
+        seed: stableSeed("element", project.id, element.id),
+        colorPalette: paletteForPreset(project.stylePresetId),
         needsOssHeader,
         params: { size: input.size },
       },

@@ -75,7 +75,7 @@ describe("config and maskApiKey", () => {
 
     expect(config.dataDir).toBe(path.resolve(process.cwd(), "data"));
     expect(config.projectsDir).toBe(path.join(os.homedir(), "projects"));
-    expect(config.jobs.maxConcurrent).toBe(2);
+    expect(config.jobs.maxConcurrent).toBe(3);
     expect(config.jobs.pollIntervalMs).toBe(10000);
     expect(config.qwen.region).toBe("ap-southeast-1");
     expect(config.textProvider).toBe("qwen");
@@ -94,7 +94,7 @@ describe("config and maskApiKey", () => {
     expect(config.projectsDir).toBe(path.join(os.homedir(), "projects"));
     expect(config.qwen.apiKey).toBeUndefined();
     expect(config.qwen.region).toBe("ap-southeast-1");
-    expect(config.jobs.maxConcurrent).toBe(2);
+    expect(config.jobs.maxConcurrent).toBe(3);
   });
 
   it("expands a leading tilde in path settings", () => {

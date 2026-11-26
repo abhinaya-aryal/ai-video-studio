@@ -18,7 +18,7 @@ import type { VideoSynthesisRequestBody } from "@/lib/providers/wan-payload";
  */
 export const SUBMIT_TIMEOUT_MS = 120_000;
 export const POLL_TIMEOUT_MS = 30_000;
-export const IMAGE_TIMEOUT_MS = 180_000;
+export const IMAGE_TIMEOUT_MS = 120_000;
 export const SPEECH_TIMEOUT_MS = 120_000;
 
 export interface SubmitVideoTaskParams {
@@ -206,6 +206,9 @@ export interface GenerateImageParams {
   size?: string;
   n?: number;
   negativePrompt?: string;
+  thinkingMode?: boolean;
+  seed?: number;
+  colorPalette?: Array<{ hex: string; ratio: string }>;
   needsOssHeader?: boolean;
   fetchFn?: typeof fetch;
 }
@@ -227,6 +230,9 @@ export async function generateImage({
   size,
   n,
   negativePrompt,
+  thinkingMode,
+  seed,
+  colorPalette,
   needsOssHeader,
   fetchFn = fetch,
 }: GenerateImageParams): Promise<GenerateImageResult> {
@@ -238,6 +244,9 @@ export async function generateImage({
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
+    // The async image endpoint returns a task ID; the runner polls it. The
+    // sync multimodal endpoint rejects this header.
+    "X-DashScope-Async": "enable",
   };
   if (hasOssUri) {
     headers["X-DashScope-OssResourceResolve"] = "enable";
@@ -253,8 +262,19 @@ export async function generateImage({
   if (n !== undefined) parameters.n = n;
   if (negativePrompt) parameters.negative_prompt = negativePrompt;
 
+  // These parameters are Wan 2.7 image specific.
+  if (model.startsWith("wan2.7-image")) {
+    // Thinking mode adds reasoning latency and only applies when no image is
+    // supplied, so default it off for element images and keyframes.
+    parameters.thinking_mode = thinkingMode ?? false;
+    if (seed !== undefined) parameters.seed = seed;
+    if (colorPalette && colorPalette.length > 0) {
+      parameters.color_palette = colorPalette;
+    }
+  }
+
   const res = await fetchFn(
-    `${cleanBase}${QWEN_ENDPOINT_PATHS.imageGeneration}`,
+    `${cleanBase}${QWEN_ENDPOINT_PATHS.imageTaskGeneration}`,
     {
       method: "POST",
       headers,

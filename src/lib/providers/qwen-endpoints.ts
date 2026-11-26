@@ -13,6 +13,7 @@ export const QWEN_ENDPOINT_PATHS = {
   chatCompletions: "/compatible-mode/v1/chat/completions",
   models: "/compatible-mode/v1/models",
   imageGeneration: "/api/v1/services/aigc/multimodal-generation/generation",
+  imageTaskGeneration: "/api/v1/services/aigc/image-generation/generation",
   videoSynthesis: "/api/v1/services/aigc/video-generation/video-synthesis",
   taskStatus: (taskId: string) =>
     `/api/v1/tasks/${encodeURIComponent(taskId)}`,

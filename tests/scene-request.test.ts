@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Project, ReferenceElement, Scene } from "@/db/schema";
 import { getModelCapabilities } from "@/lib/providers/catalog";
 import {
+  buildSceneKeyframeRequest,
   buildSceneVideoRequest,
   memoizeImagePreparer,
 } from "@/lib/studio/scene-request";
@@ -292,6 +293,39 @@ describe("buildSceneVideoRequest", () => {
         prepareImage: async (p) => p,
       }),
     ).rejects.toThrow(/Stage 2/i);
+  });
+});
+
+describe("buildSceneKeyframeRequest", () => {
+  it("adds a stable seed and the project style palette", async () => {
+    const element = makeElement("char-1", "character", "Kira");
+    const scene = makeScene({
+      linkedElementIdsJson: JSON.stringify([element.id]),
+    });
+    const project = makeProject({ stylePresetId: "preset-3d-mythic" });
+    const cap = getModelCapabilities("wan2.7-image-pro");
+    const prepareImage = vi.fn(async () => "img:kira.png");
+
+    const first = await buildSceneKeyframeRequest(
+      scene,
+      [element],
+      project,
+      cap,
+      { position: "first" },
+      { prepareImage },
+    );
+    const second = await buildSceneKeyframeRequest(
+      scene,
+      [element],
+      project,
+      cap,
+      { position: "first" },
+      { prepareImage },
+    );
+
+    expect(typeof first.payload.seed).toBe("number");
+    expect(first.payload.seed).toBe(second.payload.seed);
+    expect(first.payload.colorPalette?.length).toBeGreaterThanOrEqual(3);
   });
 });
 
