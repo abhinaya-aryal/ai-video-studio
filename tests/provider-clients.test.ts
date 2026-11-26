@@ -17,6 +17,7 @@ import {
 } from "@/lib/providers/qwen-client";
 import {
   prepareImageMedia,
+  resetOssUnsupportedHostsForTests,
   uploadToDashScopeOss,
 } from "@/lib/providers/qwen-oss";
 import { getTextChat } from "@/lib/providers/text";
@@ -53,6 +54,7 @@ function makeTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
 }
 
 afterEach(async () => {
+  resetOssUnsupportedHostsForTests();
   await Promise.all(
     tempDirs
       .splice(0, tempDirs.length)
@@ -144,6 +146,58 @@ describe("DashScope OSS upload and prepareImageMedia", () => {
 
     expect(dataUri.startsWith("data:image/png;base64,")).toBe(true);
     expect(singleFetch).not.toHaveBeenCalled();
+
+    // When /api/v1/uploads returns 404 (Token Plan), multi-image requests fall
+    // back to Base64 and cache the host so subsequent images skip the 404 probe.
+    const notFoundFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
+    const fallbackUri = await prepareImageMedia({
+      baseUrl: "https://token-plan-404.ap-southeast-1.maas.aliyuncs.com",
+      apiKey: "sk-sp-secret",
+      model: "wan3.0-video",
+      filePath: smallPng,
+      imageCountInRequest: 2,
+      fetchFn: notFoundFetch,
+    });
+    expect(fallbackUri.startsWith("data:image/png;base64,")).toBe(true);
+    expect(notFoundFetch).toHaveBeenCalledTimes(1);
+
+    const cachedFallbackUri = await prepareImageMedia({
+      baseUrl: "https://token-plan-404.ap-southeast-1.maas.aliyuncs.com",
+      apiKey: "sk-sp-secret",
+      model: "wan3.0-video",
+      filePath: smallPng,
+      imageCountInRequest: 2,
+      fetchFn: notFoundFetch,
+    });
+    expect(cachedFallbackUri.startsWith("data:image/png;base64,")).toBe(true);
+    expect(notFoundFetch).toHaveBeenCalledTimes(1);
+
+    // Real PNG images are compressed to smaller inline JPEG data URIs via sharp.
+    const { default: sharp } = await import("sharp");
+    const rawPixels = Buffer.alloc(512 * 512 * 3);
+    for (let i = 0; i < rawPixels.length; i += 3) {
+      rawPixels[i] = (i * 13) % 256;
+      rawPixels[i + 1] = (i * 29) % 256;
+      rawPixels[i + 2] = (i * 47) % 256;
+    }
+    const realPngBuffer = await sharp(rawPixels, {
+      raw: { width: 512, height: 512, channels: 3 },
+    })
+      .png({ compressionLevel: 0 })
+      .toBuffer();
+    const realPngPath = await makeTempFile("real.png", realPngBuffer);
+    const compressedUri = await prepareImageMedia({
+      baseUrl: "https://token-plan-404.ap-southeast-1.maas.aliyuncs.com",
+      apiKey: "sk-sp-secret",
+      model: "wan3.0-video",
+      filePath: realPngPath,
+      imageCountInRequest: 1,
+      fetchFn: singleFetch,
+    });
+    expect(compressedUri.startsWith("data:image/jpeg;base64,")).toBe(true);
+    expect(compressedUri.length).toBeLessThan(realPngBuffer.toString("base64").length);
 
     const multiFetch = vi
       .fn<typeof fetch>()

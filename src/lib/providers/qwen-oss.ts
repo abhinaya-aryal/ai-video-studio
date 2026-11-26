@@ -13,6 +13,21 @@ export const OSS_IMAGE_SIZE_THRESHOLD_BYTES = 2 * 1024 * 1024;
 /** Upper bound for a policy fetch plus a temporary OSS upload. */
 export const OSS_UPLOAD_TIMEOUT_MS = 120_000;
 
+/** Max edge length and JPEG quality when encoding inline Base64 images. */
+const INLINE_IMAGE_MAX_DIM = 1280;
+const INLINE_IMAGE_JPEG_QUALITY = 88;
+
+/**
+ * Remember provider base URLs whose `/api/v1/uploads?action=getPolicy` returned
+ * 404 (e.g. Token Plan), so subsequent multi-image requests skip the wasted probe.
+ */
+const ossUnsupportedHosts = new Set<string>();
+
+/** Clear cached 404 OSS-unsupported hosts (intended for test teardown). */
+export function resetOssUnsupportedHostsForTests(): void {
+  ossUnsupportedHosts.clear();
+}
+
 const MIME_BY_EXT: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -137,10 +152,39 @@ export interface PrepareImageMediaParams {
   fetchFn?: typeof fetch;
 }
 
+async function encodeInlineImageBase64(filePath: string): Promise<string> {
+  const originalBytes = await fs.readFile(filePath);
+  const originalMime = inferMimeType(filePath, "image/png");
+
+  try {
+    const { default: sharp } = await import("sharp");
+    const compressed = await sharp(originalBytes)
+      .rotate()
+      .resize({
+        width: INLINE_IMAGE_MAX_DIM,
+        height: INLINE_IMAGE_MAX_DIM,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: INLINE_IMAGE_JPEG_QUALITY, mozjpeg: true })
+      .toBuffer();
+
+    if (compressed.byteLength > 0 && compressed.byteLength < originalBytes.byteLength) {
+      return `data:image/jpeg;base64,${compressed.toString("base64")}`;
+    }
+  } catch {
+    // Fall back to original bytes if sharp cannot decode (e.g. synthetic test buffers).
+  }
+
+  return `data:${originalMime};base64,${originalBytes.toString("base64")}`;
+}
+
 /**
  * Prepare a local image file for a Qwen/Wan API request: upload via DashScope
  * OSS when larger than 2 MiB or when sending multiple images; otherwise encode
- * inline as a Base64 data URI.
+ * inline as a Base64 data URI. If the provider endpoint returns 404 for the
+ * temporary OSS upload policy (e.g. Token Plan), cache the host and fall back
+ * to a compact inline Base64 payload.
  */
 export async function prepareImageMedia({
   baseUrl,
@@ -150,18 +194,29 @@ export async function prepareImageMedia({
   imageCountInRequest,
   fetchFn = fetch,
 }: PrepareImageMediaParams): Promise<string> {
+  const cleanBase = baseUrl.replace(/\/+$/, "");
   const stats = await fs.stat(filePath);
-  if (stats.size > OSS_IMAGE_SIZE_THRESHOLD_BYTES || imageCountInRequest > 1) {
-    return uploadToDashScopeOss({
-      baseUrl,
-      apiKey,
-      model,
-      filePath,
-      fetchFn,
-    });
+  if (
+    (stats.size > OSS_IMAGE_SIZE_THRESHOLD_BYTES || imageCountInRequest > 1) &&
+    !ossUnsupportedHosts.has(cleanBase)
+  ) {
+    try {
+      return await uploadToDashScopeOss({
+        baseUrl: cleanBase,
+        apiKey,
+        model,
+        filePath,
+        fetchFn,
+      });
+    } catch (err) {
+      if (!(err instanceof ProviderHttpError && err.httpStatus === 404)) {
+        throw err;
+      }
+      // Token Plan endpoints return 404 from /api/v1/uploads?action=getPolicy;
+      // remember this host and fall back to compact inline Base64.
+      ossUnsupportedHosts.add(cleanBase);
+    }
   }
 
-  const bytes = await fs.readFile(filePath);
-  const mime = inferMimeType(filePath, "image/png");
-  return `data:${mime};base64,${bytes.toString("base64")}`;
+  return encodeInlineImageBase64(filePath);
 }

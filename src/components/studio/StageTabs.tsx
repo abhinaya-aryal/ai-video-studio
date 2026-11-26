@@ -154,7 +154,12 @@ export function StageTabs({ projectId }: StageTabsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button render={<Link href="/" />} variant="outline" size="sm">
+          <Button
+            render={<Link href="/" />}
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+          >
             <ArrowLeft className="mr-1.5 size-4" />
             Back to Projects
           </Button>
@@ -179,6 +184,7 @@ export function StageTabs({ projectId }: StageTabsProps) {
             <div className="flex min-w-0 items-center gap-2.5">
               <Button
                 render={<Link href="/" />}
+                nativeButton={false}
                 variant="ghost"
                 size="icon-sm"
                 title="Back to Projects"

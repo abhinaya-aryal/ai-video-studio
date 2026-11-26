@@ -76,6 +76,42 @@ function resolveExtension(
   return MODALITY_DEFAULT_EXT[modality];
 }
 
+const BASE64_DATA_URI_RE = /^data:[^;]+;base64,/i;
+
+function scrubBase64Value(value: unknown): unknown {
+  if (typeof value === "string") {
+    return BASE64_DATA_URI_RE.test(value) ? "[base64-omitted]" : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(scrubBase64Value);
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = scrubBase64Value(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Replace inline `data:*;base64,...` blobs in a completed job's `requestJson`
+ * so SQLite does not accumulate megabytes of transient image payloads while
+ * preserving `prompt` and `params`.
+ */
+export function stripBase64FromRequestJson(requestJson: string): string {
+  if (!requestJson.includes(";base64,")) {
+    return requestJson;
+  }
+  try {
+    const parsed = JSON.parse(requestJson) as unknown;
+    return JSON.stringify(scrubBase64Value(parsed));
+  } catch {
+    return requestJson;
+  }
+}
+
 function extractPromptAndParams(requestJson: string): {
   prompt: string;
   paramsJson: string;
@@ -347,6 +383,7 @@ export async function persistResult(
     tx.update(jobs)
       .set({
         resultAssetId: assetId,
+        requestJson: stripBase64FromRequestJson(job.requestJson),
         status: "READY",
         errorCode: null,
         errorMessage: null,

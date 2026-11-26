@@ -682,4 +682,44 @@ describe("JobRunner and persistResult", () => {
       .get()!;
     expect(refreshedElement.activeImagePath).toBe(asset.filePath);
   });
+
+  it("scrubs Base64 data URIs from jobs.requestJson once a job completes (READY)", async () => {
+    seedProjectAndScene();
+    const db = getDb();
+
+    const job = enqueueJob({
+      projectId: "proj-1",
+      elementId: "elem-1",
+      modality: "image",
+      role: "element_sheet",
+      modelId: "wan2.7-image-pro",
+      request: {
+        modality: "image",
+        prompt: "Single character portrait of Kira",
+        referenceImages: ["data:image/jpeg;base64,AAAA1111BBBB2222"],
+        params: { size: "1024*1024" },
+      },
+    });
+
+    const runner = new JobRunner({
+      submit: vi.fn(async () => ({
+        kind: "sync" as const,
+        source: {
+          kind: "bytes" as const,
+          bytes: new Uint8Array([137, 80, 78, 71]),
+          mime: "image/png",
+        },
+      })),
+      poll: vi.fn(),
+      download: vi.fn(),
+    });
+
+    await runner.tick();
+
+    const updated = db.select().from(jobs).where(eq(jobs.id, job.id)).get()!;
+    expect(updated.status).toBe("READY");
+    expect(updated.requestJson).not.toContain("AAAA1111BBBB2222");
+    expect(updated.requestJson).toContain("[base64-omitted]");
+    expect(updated.requestJson).toContain("Single character portrait of Kira");
+  });
 });
