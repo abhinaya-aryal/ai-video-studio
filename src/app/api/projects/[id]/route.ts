@@ -9,6 +9,7 @@ import {
   scenes,
 } from "@/db";
 import {
+  RouteError,
   apiOk,
   handleRouteError,
   parseJsonBody,
@@ -99,7 +100,16 @@ export async function PATCH(req: Request, context: RouteContext) {
 export async function DELETE(_req: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    requireProject(id);
+    const project = requireProject(id);
+    if (project.isHidden) {
+      throw new RouteError(
+        "PROJECT_PROTECTED",
+        "The Quick Clips project is managed by the app and cannot be deleted.",
+        409,
+      );
+    }
+
+    // DB rows only. PROJECTS_DIR/<slug>/ is intentionally left on disk.
     getDb().delete(projects).where(eq(projects.id, id)).run();
     return apiOk({ deleted: true });
   } catch (err) {

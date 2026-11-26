@@ -50,7 +50,7 @@ export function ElementCard({
     null,
   );
 
-  const sheetAssets = useMemo(
+  const imageAssets = useMemo(
     () =>
       assets
         .filter(
@@ -90,14 +90,14 @@ export function ElementCard({
       const data = await res.json();
       if (!res.ok) {
         throw new Error(
-          data?.error?.message ?? "Failed to queue element sheet",
+          data?.error?.message ?? "Failed to queue element image",
         );
       }
-      toast.success(`Queued reference sheet for "${element.name}"`);
+      toast.success(`Queued image for "${element.name}"`);
       await onRefreshJobs();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to generate sheet",
+        err instanceof Error ? err.message : "Failed to generate image",
       );
     } finally {
       setGenerating(false);
@@ -120,7 +120,7 @@ export function ElementCard({
       if (!res.ok) {
         throw new Error(data?.error?.message ?? "Failed to upload image");
       }
-      toast.success(`Uploaded sheet for "${element.name}"`);
+      toast.success(`Uploaded image for "${element.name}"`);
       await onRefreshProject();
     } catch (err) {
       toast.error(
@@ -147,13 +147,13 @@ export function ElementCard({
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Failed to set active sheet");
+        throw new Error(data?.error?.message ?? "Failed to set active image");
       }
-      toast.success(`Updated active sheet for "${element.name}"`);
+      toast.success(`Updated active image for "${element.name}"`);
       await onRefreshProject();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to set active sheet",
+        err instanceof Error ? err.message : "Failed to set active image",
       );
     } finally {
       setSettingActivePath(null);
@@ -213,7 +213,7 @@ export function ElementCard({
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-1.5 text-xs text-subtle-foreground">
             <ImageIcon className="size-7 opacity-50" />
-            <span>No active sheet</span>
+            <span>No image yet</span>
           </div>
         )}
       </div>
@@ -221,7 +221,7 @@ export function ElementCard({
       <Input
         value={promptOverride}
         onChange={(e) => setPromptOverride(e.target.value)}
-        placeholder="Optional custom sheet prompt..."
+        placeholder="Optional custom image prompt..."
         className="h-8 text-xs"
       />
 
@@ -238,7 +238,7 @@ export function ElementCard({
           ) : (
             <Sparkles className="size-3.5" />
           )}
-          {isJobActive ? "Generating..." : "Generate Sheet"}
+          {isJobActive ? "Generating..." : "Generate Image"}
         </Button>
 
         <Button
@@ -268,13 +268,13 @@ export function ElementCard({
         />
       </div>
 
-      {sheetAssets.length > 0 && (
+      {imageAssets.length > 0 && (
         <div className="mt-auto space-y-1.5 border-t border-border pt-2.5">
           <div className="text-[11px] font-medium text-muted-foreground">
-            Version History ({sheetAssets.length})
+            Version History ({imageAssets.length})
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {sheetAssets.map((asset) => {
+            {imageAssets.map((asset) => {
               const isActive = element.activeImagePath === asset.filePath;
               return (
                 <div

@@ -125,7 +125,7 @@ These IDs ship with hand-checked rules. Sync adds them when the token offers the
 | Modality | Built-in model IDs | Notes |
 | --- | --- | --- |
 | Video | `wan3.0-video`, `wan3.0-video-prime`, `wan2.7-t2v`, `wan2.7-i2v`, `wan2.7-r2v` | `wan3` handles all media modes in one model. The `wan2.7` entries are split by mode: text-to-video, first/last frame, and reference-to-video. |
-| Image | `wan2.7-image-pro`, `wan2.7-image`, `qwen-image-3.0` | Used for element sheets and keyframes. |
+| Image | `wan2.7-image-pro`, `wan2.7-image`, `qwen-image-3.0` | Used for element images and keyframes. |
 | Audio | `qwen-audio-3.0-tts-plus` | Used for voiceover. |
 | Text | `qwen-plus`, `qwen-max`, `qwen-turbo` | Used for refinement and polish. |
 
@@ -174,7 +174,7 @@ Setup once, then follow three stages per project:
 
 1. **Create a project** with an idea, style preset, aspect ratio, resolution, and default video model.
 2. **Stage 1, Story & Scenes:** write the rough idea, run Auto-Refine, then edit the story, Style Bible, elements, and scene prompts.
-3. **Stage 2, Elements & Keyframes:** generate or upload reference sheets, generate first and last keyframes, and optionally add TTS voiceover.
+3. **Stage 2, Elements & Keyframes:** generate or upload one image per element, generate first and last keyframes, and optionally add TTS voiceover.
 4. **Stage 3, Video & Export:** choose a media mode per scene, generate clips, promote the best take, then rebuild and download the Kdenlive export.
 
 Quick Clip skips the project and generates one shot with the same models and media rules.
@@ -197,7 +197,7 @@ A model the token does not list can still be added manually with its modality an
 | --- | --- |
 | `text_refine` | Story refinement and the connection test |
 | `text_polish` | Prompt polish |
-| `image` | Element reference sheets and scene keyframes |
+| `image` | Element images and scene keyframes |
 | `video` | Scene clips and Quick Clip |
 | `audio` | Voiceover |
 
@@ -238,7 +238,7 @@ Polish returns three fields. Quick Clip appends Camera and Audio lines to the pr
 | --- | --- |
 | `data/studio.db` | Projects, elements, scenes, asset records, jobs, custom models, and style presets. |
 | `~/projects/<slug>/story.md` | The written treatment for the export. |
-| `~/projects/<slug>/elements/` | Reference sheets and uploaded element images. |
+| `~/projects/<slug>/elements/` | Generated and uploaded element images. |
 | `~/projects/<slug>/scenes/` | Keyframes, clips, and voiceover files. |
 | `~/projects/<slug>/export_kdenlive/` | The latest Kdenlive export, including `project.kdenlive` and `story.md`. |
 | `~/projects/_quick-clips/` | Hidden project that stores Quick Clip jobs and media. |
@@ -267,6 +267,7 @@ Back up `DATA_DIR` and `PROJECTS_DIR` together while the server is stopped. Rest
 | `409 MODEL_UNAVAILABLE` | The chosen model is no longer offered to the token | Sync, then pick an available model. |
 | Sync returns zero models | The token has no model access, or the key/region pair is wrong | Check Provider Status and the key type. |
 | Job stays `RUNNING` for a long time | Provider is still generating | Wait. Video jobs can take several minutes. Do not resubmit. |
+| Jobs stay `QUEUED` and nothing starts | A crashed or duplicate process left jobs in `DOWNLOADING` | Stop every extra `next dev` / `next start` process for the same `DATA_DIR`. The runner repairs stuck jobs on the next tick. |
 | Output has no audio | The selected model does not support native audio | Pick a native-audio video model, or keep `silent` audio mode. |
 | Export lists missing scenes | Those scenes have no active take | Generate a clip and click **Set Active**, then rebuild. |
 | Configuration error on startup | A value violates the Zod schema | Check ranges for `MAX_CONCURRENT_JOBS`, `JOB_POLL_INTERVAL_MS`, and required OpenAI-compatible fields. |

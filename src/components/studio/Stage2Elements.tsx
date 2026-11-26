@@ -151,16 +151,16 @@ export function Stage2Elements({
 
   return (
     <div className="space-y-8">
-      {/* Element Sheets */}
+      {/* Element Images */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold tracking-tight text-foreground">
-              Element Reference Sheets ({elements.length})
+              Element Images ({elements.length})
             </h2>
             <p className="text-xs text-muted-foreground">
-              Generate or upload reference sheets so characters, props, and
-              locations stay visually consistent.
+              Generate or upload one clean image for each character, prop, and
+              location. The video model handles poses and expressions.
             </p>
           </div>
         </div>
@@ -169,7 +169,7 @@ export function Stage2Elements({
           <EmptyState
             icon={ImageIcon}
             title="No elements in the roster yet"
-            description="Add characters, props, or locations in Stage 1 to generate their reference sheets."
+            description="Add characters, props, or locations in Stage 1 to create their images."
             className="py-10"
           />
         ) : (

@@ -13,7 +13,7 @@ const STAGES = [
   {
     value: "stage2",
     label: "Elements & Keyframes",
-    hint: "Reference sheets, first/last frames",
+    hint: "Element images, first/last frames",
     icon: Layers,
   },
   {

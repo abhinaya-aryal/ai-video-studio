@@ -1,0 +1,1 @@
+ALTER TABLE `jobs` ADD `claimed_at` integer;

@@ -14,6 +14,7 @@ import {
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
 import { resolveSlotModel } from "@/lib/providers/model-selection";
+import { buildElementImagePrompt } from "@/lib/studio/element-image";
 
 const ElementSheetSchema = z.object({
   projectId: z.string().trim().min(1),
@@ -42,16 +43,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const basePrompt =
-      input.prompt?.trim() ||
-      [
-        `Reference sheet for ${element.kind} "${element.name}".`,
-        element.description.trim(),
-        project.styleBible.trim() ? `Style: ${project.styleBible.trim()}` : "",
-        "Clean neutral background, consistent design, high detail.",
-      ]
-        .filter(Boolean)
-        .join("\n");
+    const basePrompt = buildElementImagePrompt(
+      element,
+      project.styleBible,
+      input.prompt,
+    );
 
     const refPaths = input.referenceAssetPaths ?? [];
     const maxRefs =

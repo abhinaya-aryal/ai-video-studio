@@ -216,6 +216,8 @@ export const jobs = sqliteTable(
     status: text("status", { enum: JOB_STATUSES })
       .notNull()
       .default("QUEUED"),
+    /** Set while a runner is submitting a `QUEUED` job; prevents duplicate submits across processes. */
+    claimedAt: integer("claimed_at"),
     attempts: integer("attempts").notNull().default(0),
     errorCode: text("error_code"),
     errorMessage: text("error_message"),

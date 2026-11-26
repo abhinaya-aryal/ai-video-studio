@@ -117,7 +117,7 @@ function extractPromptAndParams(requestJson: string): {
 export async function defaultDownload(
   url: string,
 ): Promise<{ bytes: Uint8Array; mime: string }> {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(300_000) });
   if (!res.ok) {
     throw new Error(`Failed to download result (${res.status} ${res.statusText})`);
   }
@@ -151,6 +151,20 @@ export async function persistResult(
       .where(eq(assets.id, existingAssetId))
       .get();
     if (existingAsset) {
+      // A duplicate submit can leave the job in DOWNLOADING after the asset
+      // was written. The output already exists, so finish the job here.
+      if (currentJob && currentJob.status !== "READY") {
+        db.update(jobs)
+          .set({
+            status: "READY",
+            claimedAt: null,
+            errorCode: null,
+            errorMessage: null,
+            updatedAt: Date.now(),
+          })
+          .where(eq(jobs.id, job.id))
+          .run();
+      }
       return existingAsset;
     }
   }

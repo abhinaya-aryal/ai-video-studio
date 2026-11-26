@@ -59,7 +59,7 @@ export function mediaModeState(
   const reasons: Record<string, string> = {};
 
   // Only the media that the selected mode actually sends may influence slot
-  // disabling and submit readiness. Linked element sheets and uploads stay
+  // disabling and submit readiness. Linked element images and uploads stay
   // attached to the scene in every mode, but the request builder ignores
   // references in frame/text modes and ignores frames in omni mode.
   const scoped: AttachedMediaCounts =

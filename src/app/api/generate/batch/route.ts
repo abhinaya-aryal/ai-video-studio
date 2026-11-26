@@ -17,6 +17,9 @@ import { resolveSlotModel } from "@/lib/providers/model-selection";
 import {
   buildSceneKeyframeRequest,
   buildSceneVideoRequest,
+  memoizeImagePreparer,
+  prepareProjectImagePath,
+  prepareProjectMediaPath,
 } from "@/lib/studio/scene-request";
 
 const BatchGenerateSchema = z.object({
@@ -77,53 +80,57 @@ export async function POST(req: Request) {
       .where(eq(referenceElements.projectId, project.id))
       .all();
 
+    // Shared across the batch so a linked element image is prepared once,
+    // not once per scene.
+    const prepareImage = memoizeImagePreparer((filePath, count) =>
+      prepareProjectImagePath(filePath, model, count),
+    );
+    const prepareMedia = (filePath: string) =>
+      prepareProjectMediaPath(filePath, model);
+
+    const builtByScene = await Promise.all(
+      targetScenes.map(async (scene) => {
+        if (input.kind === "keyframes") {
+          return {
+            scene,
+            ...(await buildSceneKeyframeRequest(
+              scene,
+              elements,
+              project,
+              cap,
+              { position: "first", size: resolution },
+              { prepareImage },
+            )),
+          };
+        }
+        return {
+          scene,
+          ...(await buildSceneVideoRequest(scene, elements, project, cap, {
+            uploads: input.uploadsByScene?.[scene.id],
+            prepareImage,
+            prepareMedia,
+          })),
+        };
+      }),
+    );
+
     const enqueuedJobs = [];
     const droppedElementsByScene: Record<string, string[]> = {};
 
-    for (const scene of targetScenes) {
-      if (input.kind === "keyframes") {
-        const { payload, droppedElements } = await buildSceneKeyframeRequest(
-          scene,
-          elements,
-          project,
-          cap,
-          { position: "first", size: resolution },
-        );
-        if (droppedElements.length > 0) {
-          droppedElementsByScene[scene.id] = droppedElements;
-        }
-        enqueuedJobs.push(
-          enqueueJob({
-            projectId: project.id,
-            sceneId: scene.id,
-            modality: "image",
-            role: "keyframe_first",
-            modelId: model,
-            request: payload,
-          }),
-        );
-      } else {
-        const { payload, droppedElements } = await buildSceneVideoRequest(
-          scene,
-          elements,
-          project,
-          cap,
-          { uploads: input.uploadsByScene?.[scene.id] },
-        );
-        if (droppedElements.length > 0) {
-          droppedElementsByScene[scene.id] = droppedElements;
-        }
-        enqueuedJobs.push(
-          enqueueJob({
-            projectId: project.id,
-            sceneId: scene.id,
-            modality: "video",
-            role: "video_clip",
-            modelId: model,
-            request: payload,
-          }),
-        );
+    for (const { scene, payload, droppedElements } of builtByScene) {
+      if (droppedElements.length > 0) {
+        droppedElementsByScene[scene.id] = droppedElements;
       }
+      enqueuedJobs.push(
+        enqueueJob({
+          projectId: project.id,
+          sceneId: scene.id,
+          modality: input.kind === "keyframes" ? "image" : "video",
+          role: input.kind === "keyframes" ? "keyframe_first" : "video_clip",
+          modelId: model,
+          request: payload,
+        }),
+      );
     }
 
     kickRunner();

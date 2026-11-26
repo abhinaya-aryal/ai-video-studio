@@ -79,6 +79,9 @@ export async function POST(req: Request) {
       .set({
         status: "QUEUED",
         attempts: 0,
+        externalTaskId: null,
+        resultAssetId: null,
+        claimedAt: null,
         errorCode: null,
         errorMessage: null,
         updatedAt: Date.now(),

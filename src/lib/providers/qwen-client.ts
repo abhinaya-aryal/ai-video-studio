@@ -12,6 +12,15 @@ import {
 import type { AppConfig } from "@/lib/config";
 import type { VideoSynthesisRequestBody } from "@/lib/providers/wan-payload";
 
+/**
+ * Upper bounds for provider HTTP calls. Without these, a hung connection
+ * blocks the whole job runner tick and every queued job with it.
+ */
+export const SUBMIT_TIMEOUT_MS = 120_000;
+export const POLL_TIMEOUT_MS = 30_000;
+export const IMAGE_TIMEOUT_MS = 180_000;
+export const SPEECH_TIMEOUT_MS = 120_000;
+
 export interface SubmitVideoTaskParams {
   baseUrl: string;
   apiKey: string;
@@ -42,6 +51,7 @@ export async function submitVideoTask({
     method: "POST",
     headers,
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -155,6 +165,7 @@ export async function getTaskStatus({
         Authorization: `Bearer ${apiKey}`,
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(POLL_TIMEOUT_MS),
     },
   );
 
@@ -254,6 +265,7 @@ export async function generateImage({
         },
         ...(Object.keys(parameters).length > 0 ? { parameters } : {}),
       }),
+      signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
     },
   );
 
@@ -329,6 +341,7 @@ export async function synthesizeSpeech({
       },
       ...(Object.keys(parameters).length > 0 ? { parameters } : {}),
     }),
+    signal: AbortSignal.timeout(SPEECH_TIMEOUT_MS),
   });
 
   if (!res.ok) {

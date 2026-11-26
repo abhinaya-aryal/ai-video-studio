@@ -116,6 +116,7 @@ export async function syncProviderModels({
       Authorization: `Bearer ${apiKey}`,
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!res.ok) {

@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Project, ReferenceElement, Scene } from "@/db/schema";
 import { getModelCapabilities } from "@/lib/providers/catalog";
-import { buildSceneVideoRequest } from "@/lib/studio/scene-request";
+import {
+  buildSceneVideoRequest,
+  memoizeImagePreparer,
+} from "@/lib/studio/scene-request";
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   const now = Date.now();
@@ -289,5 +292,26 @@ describe("buildSceneVideoRequest", () => {
         prepareImage: async (p) => p,
       }),
     ).rejects.toThrow(/Stage 2/i);
+  });
+});
+
+describe("memoizeImagePreparer", () => {
+  it("prepares each image and size combination once per batch", async () => {
+    const prepare = vi.fn(
+      async (filePath: string, count: number) => `${filePath}:${count}`,
+    );
+    const memo = memoizeImagePreparer(prepare);
+
+    const [first, second] = await Promise.all([
+      memo("elements/kira.png", 3),
+      memo("elements/kira.png", 3),
+    ]);
+    expect(first).toBe("elements/kira.png:3");
+    expect(second).toBe(first);
+
+    await memo("elements/kira.png", 1);
+    await memo("elements/rama.png", 3);
+
+    expect(prepare).toHaveBeenCalledTimes(3);
   });
 });

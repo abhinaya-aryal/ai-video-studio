@@ -7,6 +7,7 @@ import {
   FolderPlus,
   Loader2,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Project, StylePreset } from "@/db/schema";
@@ -55,6 +56,8 @@ export default function ProjectsDashboardPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [title, setTitle] = useState("");
   const [roughIdea, setRoughIdea] = useState("");
   const [stylePresetId, setStylePresetId] = useState<string>("none");
@@ -161,6 +164,29 @@ export default function ProjectsDashboardPage() {
       );
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message ?? "Failed to delete project");
+      }
+      toast.success(`Deleted "${deleteTarget.title}"`);
+      setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete project",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -407,10 +433,54 @@ export default function ProjectsDashboardPage() {
               key={project.id}
               project={project}
               featured={index === 0}
+              onDelete={setDeleteTarget}
             />
           ))}
         </div>
       )}
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete project?</DialogTitle>
+            <DialogDescription>
+              This removes &quot;{deleteTarget?.title}&quot; and its scenes,
+              elements, assets, and job history from the app. The project folder
+              on disk ({"~/projects/" + (deleteTarget?.slug ?? "")}) is left
+              untouched. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteProject}
+              disabled={deleting}
+              className="gap-1.5"
+            >
+              {deleting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              Delete Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

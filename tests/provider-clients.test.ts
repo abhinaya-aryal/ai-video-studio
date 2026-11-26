@@ -322,6 +322,38 @@ describe("QwenCloud client", () => {
     });
   });
 
+  it("gives provider requests an abort signal so a hung call cannot stall the runner", async () => {
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () =>
+        new Response(
+          JSON.stringify({
+            output: { task_id: "task-1", task_status: "RUNNING" },
+          }),
+          { status: 200 },
+        ),
+      );
+
+    await submitVideoTask({
+      baseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com",
+      apiKey: "sk-sp-secret",
+      body: { model: "wan3.0-video", input: { prompt: "Rain" } },
+      needsOssHeader: false,
+      fetchFn,
+    });
+    await getTaskStatus({
+      baseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com",
+      apiKey: "sk-sp-secret",
+      taskId: "task-1",
+      fetchFn,
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    for (const call of fetchFn.mock.calls) {
+      expect(call[1]?.signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
   it("generateImage handles both synchronous and async responses", async () => {
     const fetchFn = vi
       .fn<typeof fetch>()

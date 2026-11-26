@@ -10,6 +10,9 @@ import { QWEN_ENDPOINT_PATHS } from "@/lib/providers/qwen-endpoints";
 /** Files larger than 2 MiB always upload through DashScope temporary OSS. */
 export const OSS_IMAGE_SIZE_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
+/** Upper bound for a policy fetch plus a temporary OSS upload. */
+export const OSS_UPLOAD_TIMEOUT_MS = 120_000;
+
 const MIME_BY_EXT: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -66,6 +69,7 @@ export async function uploadToDashScopeOss({
       Authorization: `Bearer ${apiKey}`,
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(OSS_UPLOAD_TIMEOUT_MS),
   });
 
   if (!policyRes.ok) {
@@ -114,6 +118,7 @@ export async function uploadToDashScopeOss({
   const uploadRes = await fetchFn(policy.upload_host, {
     method: "POST",
     body: form,
+    signal: AbortSignal.timeout(OSS_UPLOAD_TIMEOUT_MS),
   });
 
   if (!uploadRes.ok) {

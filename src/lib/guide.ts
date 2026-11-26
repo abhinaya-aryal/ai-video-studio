@@ -27,7 +27,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       "AI Video Studio turns a rough idea into a storyboard, a consistent element library, generated clips, and a Kdenlive-ready export. Everything runs locally against your own API keys, and every screen in the app is covered by this manual.",
     bullets: [
       "Stage 1 shapes the story, style, element roster, and scene breakdown.",
-      "Stage 2 locks the look with reference sheets, keyframes, and voiceover.",
+      "Stage 2 locks the look with element images, keyframes, and voiceover.",
       "Stage 3 generates clips, manages takes, and exports an editable project.",
     ],
     details: [
@@ -162,7 +162,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Roles",
-        text: "text_refine drives story refinement, text_polish drives prompt polish, image drives element sheets and keyframes, video drives clips and Quick Clip, and audio drives voiceover. A project can override the video role, and a request can override any role.",
+        text: "text_refine drives story refinement, text_polish drives prompt polish, image drives element images and keyframes, video drives clips and Quick Clip, and audio drives voiceover. A project can override the video role, and a request can override any role.",
       },
       {
         label: "Auto presets",
@@ -219,7 +219,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
         text: "With no projects, the page offers Create First Project and points to Quick Clip for a single shot.",
       },
     ],
-    note: "The dashboard has no delete control. A project can be removed through the DELETE /api/projects/:id endpoint; its folder must then be deleted from disk.",
+    note: "Each project card has a delete button (visible on hover or keyboard focus). Confirming removes the project and its scenes, elements, assets, and job history from the app. The project folder on disk is intentionally left untouched, and the hidden Quick Clips project cannot be deleted.",
     where: "Projects → New Project",
     href: "/",
     cta: "Open Projects",
@@ -275,7 +275,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     group: "Build",
     title: "Style Bibles and presets",
     summary:
-      "The Style Bible is the visual contract for the whole project. It feeds refinement, prompt polishing, element sheets, keyframes, and video prompts, and it can be saved as a reusable preset.",
+      "The Style Bible is the visual contract for the whole project. It feeds refinement, prompt polishing, element images, keyframes, and video prompts, and it can be saved as a reusable preset.",
     bullets: [
       "Save as Preset stores the current Style Bible under a name for future projects.",
       "Built-in presets are Cinematic, Anime, Documentary, Product, and Mythic 3D Animation; custom presets can be deleted.",
@@ -296,7 +296,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Where it is used",
-        text: "Auto-Refine, AI Polish, element sheet generation, keyframe generation, and video request prompts all include the Style Bible or its distilled rules.",
+        text: "Auto-Refine, AI Polish, element image generation, keyframe generation, and video request prompts all include the Style Bible or its distilled rules.",
       },
     ],
     where: "Settings → Style Presets",
@@ -308,7 +308,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     group: "Build",
     title: "Build the element roster",
     summary:
-      "Elements are the recurring characters, props, and locations that must look the same in every shot. The roster is shared across scenes and drives reference sheets and @Image tags.",
+      "Elements are the recurring characters, props, and locations that must look the same in every shot. The roster is shared across scenes and drives element images and @Image tags.",
     bullets: [
       "Add elements with a kind, a name, and a visual description.",
       "Deleting an element unlinks it from scenes but leaves existing media untouched.",
@@ -321,7 +321,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Fields",
-        text: "Name is required and must be unique enough to reference in prompts. Description should cover appearance, materials, colors, and any must-keep details; it is used to generate the reference sheet.",
+        text: "Name is required and must be unique enough to reference in prompts. Description should cover appearance, materials, colors, and any must-keep details; it is used to generate the element image.",
       },
       {
         label: "Add and delete",
@@ -396,37 +396,37 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   {
     id: "element-sheets",
     group: "Build",
-    title: "Stage 2 · Element reference sheets",
+    title: "Stage 2 · Element images",
     summary:
-      "A reference sheet is the canonical look for one element. Generating or uploading a sheet gives every keyframe and clip a consistent visual anchor.",
+      "Each element needs one canonical image. Generating or uploading a single image gives every keyframe and clip a consistent visual anchor, while the video model handles poses and expressions.",
     bullets: [
-      "Generate Sheet uses the element description plus the project Style Bible.",
-      "Upload accepts an image and makes it the active sheet immediately.",
-      "Version History keeps every sheet so you can switch the active one without losing earlier versions.",
+      "Generate Image uses the element description plus the project Style Bible.",
+      "Upload accepts one image and makes it the active image immediately.",
+      "Version History keeps every image so you can switch the active one without losing earlier versions.",
     ],
     details: [
       {
-        label: "Generate Sheet",
-        text: "Optionally add a custom sheet prompt, then queue generation. The button shows Generating while the job runs and disables duplicate submissions.",
+        label: "Generate Image",
+        text: "Optionally add a custom image prompt, then queue generation. The button shows Generating while the job runs and disables duplicate submissions.",
       },
       {
         label: "Upload",
-        text: "Choose an image file from disk. The file is copied into the project's elements/ folder and set as the active sheet. Uploads do not call the provider.",
+        text: "Choose one image file from disk. The file is copied into the project's elements/ folder, recorded as a new version, and set as the active image. Uploads do not call the provider.",
       },
       {
         label: "Version History",
-        text: "Lists every element_sheet asset with a thumbnail, version number, and date. The active sheet is marked; Set Active switches the reference used by later generations.",
+        text: "Lists every element image with a thumbnail and version number. The active image is marked; Set Active switches the reference used by later generations.",
       },
       {
-        label: "No active sheet",
-        text: "Shows a placeholder. Keyframes and clips can still generate from the description, but consistency improves once a sheet exists.",
+        label: "No image yet",
+        text: "Shows a placeholder. Keyframes and clips can still generate from the description, but consistency improves once an image exists.",
       },
       {
         label: "Retry",
-        text: "A failed sheet job exposes a retry button on the card. Retries reuse the same parameters and create a new version.",
+        text: "A failed image job exposes a retry button on the card. Retries reuse the same parameters and create a new version.",
       },
     ],
-    where: "Project → Elements & Keyframes → Element Reference Sheets",
+    where: "Project → Elements & Keyframes → Element Images",
     href: "/",
     cta: "Open a project",
   },
@@ -444,7 +444,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     details: [
       {
         label: "First Frame",
-        text: "Required for first_last_frame mode. Generated from the scene prompt, camera direction, Style Bible, linked element sheets, and any custom prompt. A failed job can be retried without touching the scene.",
+        text: "Required for first_last_frame mode. Generated from the scene prompt, camera direction, Style Bible, linked element images, and any custom prompt. A failed job can be retried without touching the scene.",
       },
       {
         label: "Last Frame",
@@ -563,7 +563,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "omni_reference",
-        text: "Accepts reference_image, reference_video, and reference_audio. Linked element sheets are added as reference images automatically, then uploads. Name them with @Image 1, @Image 2 in the prompt. first_frame and last_frame are disabled.",
+        text: "Accepts reference_image, reference_video, and reference_audio. Linked element images are added as reference images automatically, then uploads. Name them with @Image 1, @Image 2 in the prompt. first_frame and last_frame are disabled.",
       },
       {
         label: "Wan 3.0 caps",
@@ -788,7 +788,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Project folders",
-        text: "PROJECTS_DIR/<slug>/story.md is the written treatment. elements/ holds reference sheets and uploads. scenes/ holds keyframes, clips, and voiceovers. export_kdenlive/ holds the latest export.",
+        text: "PROJECTS_DIR/<slug>/story.md is the written treatment. elements/ holds element images and uploads. scenes/ holds keyframes, clips, and voiceovers. export_kdenlive/ holds the latest export.",
       },
       {
         label: "Quick clips",

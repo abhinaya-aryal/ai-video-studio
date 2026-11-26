@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import {
   getDb,
   jobs,
@@ -31,6 +31,11 @@ import type { VideoSynthesisRequestBody } from "@/lib/providers/wan-payload";
 
 export const MAX_JOB_ATTEMPTS = 3;
 export const BASE_BACKOFF_MS = 1000;
+/**
+ * A claim older than this is assumed to belong to a dead process and is
+ * released back to the queue. Provider calls time out well before this.
+ */
+export const CLAIM_STALE_MS = 5 * 60 * 1000;
 
 export interface PreparedVideoRequest {
   modality?: "video";
@@ -107,6 +112,7 @@ export function enqueueJob(input: EnqueueJobInput): Job {
     requestJson: JSON.stringify(input.request),
     externalTaskId: null,
     status: "QUEUED",
+    claimedAt: null,
     attempts: 0,
     errorCode: null,
     errorMessage: null,
@@ -308,39 +314,71 @@ export class JobRunner {
    * `RUNNING` / `QUEUED`.
    */
   resume(): void {
+    this.reconcileJobs();
+  }
+
+  /**
+   * Repair jobs left in an inconsistent state by a crash or by two runners
+   * sharing the database. Idempotent, so it runs on every tick.
+   */
+  private reconcileJobs(): void {
     const db = getDb();
     const now = Date.now();
 
-    const downloadingJobs = db
+    // Release claims owned by a process that died mid-submit.
+    db.update(jobs)
+      .set({ claimedAt: null, updatedAt: now })
+      .where(
+        and(
+          eq(jobs.status, "QUEUED"),
+          isNotNull(jobs.claimedAt),
+          lt(jobs.claimedAt, now - CLAIM_STALE_MS),
+        ),
+      )
+      .run();
+
+    const activeJobs = db
       .select()
       .from(jobs)
-      .where(eq(jobs.status, "DOWNLOADING"))
+      .where(inArray(jobs.status, ["PENDING", "RUNNING", "DOWNLOADING"]))
       .all();
 
-    for (const job of downloadingJobs) {
+    for (const job of activeJobs) {
       if (job.resultAssetId) {
+        // A duplicate submit can write DOWNLOADING after the asset was
+        // persisted. The output exists, so the job is actually finished.
         db.update(jobs)
-          .set({ status: "READY", updatedAt: now })
+          .set({ status: "READY", claimedAt: null, updatedAt: now })
           .where(eq(jobs.id, job.id))
           .run();
-      } else if (job.externalTaskId) {
-        db.update(jobs)
-          .set({ status: "RUNNING", updatedAt: now })
-          .where(eq(jobs.id, job.id))
-          .run();
-      } else if (job.attempts >= MAX_JOB_ATTEMPTS) {
+        continue;
+      }
+
+      if (job.externalTaskId) {
+        if (job.status === "DOWNLOADING") {
+          db.update(jobs)
+            .set({ status: "RUNNING", updatedAt: now })
+            .where(eq(jobs.id, job.id))
+            .run();
+        }
+        continue;
+      }
+
+      // No provider task was recorded, so this submission was interrupted.
+      if (job.attempts >= MAX_JOB_ATTEMPTS) {
         db.update(jobs)
           .set({
             status: "FAILED",
             errorCode: "Interrupted",
             errorMessage: "Job was interrupted before receiving a task ID.",
+            claimedAt: null,
             updatedAt: now,
           })
           .where(eq(jobs.id, job.id))
           .run();
       } else {
         db.update(jobs)
-          .set({ status: "QUEUED", updatedAt: now })
+          .set({ status: "QUEUED", claimedAt: null, updatedAt: now })
           .where(eq(jobs.id, job.id))
           .run();
       }
@@ -359,6 +397,7 @@ export class JobRunner {
   }
 
   private async runTick(): Promise<void> {
+    this.reconcileJobs();
     await this.pollActiveJobs();
     await this.submitQueuedJobs();
   }
@@ -378,7 +417,7 @@ export class JobRunner {
 
       if (job.resultAssetId) {
         db.update(jobs)
-          .set({ status: "READY", updatedAt: Date.now() })
+          .set({ status: "READY", claimedAt: null, updatedAt: Date.now() })
           .where(eq(jobs.id, job.id))
           .run();
         continue;
@@ -476,7 +515,12 @@ export class JobRunner {
     const activeRows = db
       .select({ id: jobs.id })
       .from(jobs)
-      .where(inArray(jobs.status, ["PENDING", "RUNNING", "DOWNLOADING"]))
+      .where(
+        or(
+          inArray(jobs.status, ["PENDING", "RUNNING", "DOWNLOADING"]),
+          isNotNull(jobs.claimedAt),
+        ),
+      )
       .all();
 
     let availableSlots = maxConcurrent - activeRows.length;
@@ -487,7 +531,7 @@ export class JobRunner {
     const queuedJobs = db
       .select()
       .from(jobs)
-      .where(eq(jobs.status, "QUEUED"))
+      .where(and(eq(jobs.status, "QUEUED"), isNull(jobs.claimedAt)))
       .orderBy(asc(jobs.createdAt))
       .all();
 
@@ -499,6 +543,22 @@ export class JobRunner {
 
       const eligibleAt = this.nextEligibleAt.get(job.id);
       if (eligibleAt !== undefined && now < eligibleAt) {
+        continue;
+      }
+
+      // Atomic claim: only one process may move this job into submission.
+      const claim = db
+        .update(jobs)
+        .set({ claimedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(jobs.id, job.id),
+            eq(jobs.status, "QUEUED"),
+            isNull(jobs.claimedAt),
+          ),
+        )
+        .run();
+      if (claim.changes !== 1) {
         continue;
       }
 
@@ -525,6 +585,7 @@ export class JobRunner {
             attempts: nextAttempts,
             errorCode: null,
             errorMessage: null,
+            claimedAt: null,
             updatedAt: now,
           })
           .where(eq(jobs.id, job.id))
@@ -538,6 +599,7 @@ export class JobRunner {
           attempts: nextAttempts,
           errorCode: null,
           errorMessage: null,
+          claimedAt: null,
           updatedAt: now,
         })
         .where(eq(jobs.id, job.id))
@@ -560,6 +622,7 @@ export class JobRunner {
             attempts: nextAttempts,
             errorCode: classified.code,
             errorMessage: classified.message,
+            claimedAt: null,
             updatedAt: now,
           })
           .where(eq(jobs.id, job.id))
@@ -574,6 +637,7 @@ export class JobRunner {
           attempts: nextAttempts,
           errorCode: classified.code,
           errorMessage: classified.message,
+          claimedAt: null,
           updatedAt: now,
         })
         .where(eq(jobs.id, job.id))

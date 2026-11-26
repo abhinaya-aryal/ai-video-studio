@@ -64,6 +64,7 @@ export async function chatCompletion({
     method: "POST",
     headers,
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!res.ok) {
@@ -123,6 +124,7 @@ export async function testOpenAIConnection({
   try {
     const modelsRes = await fetchFn(`${cleanBase}/models`, {
       method: "GET",
+      signal: AbortSignal.timeout(15_000),
       headers,
     });
 

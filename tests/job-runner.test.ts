@@ -319,6 +319,146 @@ describe("JobRunner and persistResult", () => {
     expect(secondAsset.id).toBe(asset.id);
     expect(download).toHaveBeenCalledTimes(1);
     expect(db.select().from(assets).all()).toHaveLength(1);
+
+    // If a duplicate submit left the job in DOWNLOADING after the asset was
+    // already persisted, the idempotent path must still finish the job.
+    db.update(jobs)
+      .set({ status: "DOWNLOADING" })
+      .where(eq(jobs.id, job.id))
+      .run();
+    await persistResult(
+      updatedJob,
+      { url: "https://cdn.example.com/output/clip.mp4" },
+      { download },
+    );
+    const recovered = db.select().from(jobs).where(eq(jobs.id, job.id)).get()!;
+    expect(recovered.status).toBe("READY");
+  });
+
+  it("claims a queued job atomically so two runners cannot submit it twice", async () => {
+    seedProjectAndScene();
+
+    const job = enqueueJob({
+      projectId: "proj-1",
+      elementId: "elem-1",
+      modality: "image",
+      role: "element_sheet",
+      modelId: "wan2.7-image-pro",
+      request: { prompt: "Kira portrait" },
+    });
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const submit = vi.fn<NonNullable<RunnerDeps["submit"]>>(async (submitted) => {
+      await gate;
+      return { kind: "async", taskId: `task-${submitted.id}` };
+    });
+    const poll = vi.fn<NonNullable<RunnerDeps["poll"]>>(async () => ({
+      status: "RUNNING",
+      resultUrls: [],
+    }));
+    const download = vi.fn<NonNullable<RunnerDeps["download"]>>();
+
+    const runnerA = new JobRunner({ submit, poll, download }, { maxConcurrent: 2 });
+    const runnerB = new JobRunner({ submit, poll, download }, { maxConcurrent: 2 });
+
+    const tickA = runnerA.tick();
+    const tickB = runnerB.tick();
+    release();
+    await Promise.all([tickA, tickB]);
+
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(submit.mock.calls[0][0].id).toBe(job.id);
+  });
+
+  it("reconciles a DOWNLOADING job that already has a result asset on each tick", async () => {
+    seedProjectAndScene();
+    const db = getDb();
+    const now = Date.now();
+
+    const stuck = enqueueJob({
+      projectId: "proj-1",
+      elementId: "elem-1",
+      modality: "image",
+      role: "element_sheet",
+      modelId: "wan2.7-image-pro",
+      request: { prompt: "Kira portrait" },
+    });
+
+    const assetId = "asset-already-persisted";
+    db.insert(assets)
+      .values({
+        id: assetId,
+        projectId: "proj-1",
+        elementId: "elem-1",
+        type: "image",
+        role: "element_sheet",
+        version: 1,
+        filePath: "neon-city/elements/character_kira-vance_v1.png",
+        prompt: "Kira portrait",
+        paramsJson: "{}",
+        createdAt: now,
+      })
+      .run();
+    db.update(jobs)
+      .set({
+        status: "DOWNLOADING",
+        attempts: 1,
+        resultAssetId: assetId,
+      })
+      .where(eq(jobs.id, stuck.id))
+      .run();
+
+    const queued = enqueueJob({
+      projectId: "proj-1",
+      sceneId: "scene-1",
+      modality: "video",
+      role: "video_clip",
+      modelId: "wan3.0-video",
+      request: { prompt: "Next shot" },
+    });
+
+    const submit = vi.fn<NonNullable<RunnerDeps["submit"]>>(async (job) => ({
+      kind: "async",
+      taskId: `task-${job.id}`,
+    }));
+    const runner = new JobRunner(
+      { submit, poll: vi.fn(), download: vi.fn() },
+      { maxConcurrent: 1 },
+    );
+
+    await runner.tick();
+
+    const reconciled = db.select().from(jobs).where(eq(jobs.id, stuck.id)).get()!;
+    expect(reconciled.status).toBe("READY");
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(submit.mock.calls[0][0].id).toBe(queued.id);
+  });
+
+  it("requeues RUNNING jobs without an external task id after a restart", () => {
+    seedProjectAndScene();
+    const db = getDb();
+
+    const job = enqueueJob({
+      projectId: "proj-1",
+      sceneId: "scene-1",
+      modality: "video",
+      role: "video_clip",
+      modelId: "wan3.0-video",
+      request: { prompt: "Interrupted mid-submit" },
+    });
+    db.update(jobs)
+      .set({ status: "RUNNING", attempts: 1 })
+      .where(eq(jobs.id, job.id))
+      .run();
+
+    const runner = new JobRunner({});
+    runner.resume();
+
+    const updated = db.select().from(jobs).where(eq(jobs.id, job.id)).get()!;
+    expect(updated.status).toBe("QUEUED");
   });
 
   it("returns a single globalThis runner instance and creates only one interval on repeated start()", () => {

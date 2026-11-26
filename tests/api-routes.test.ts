@@ -1,15 +1,27 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { closeDbForTests, customModels, getDb, jobs, projects, scenes } from "@/db";
+import {
+  assets,
+  closeDbForTests,
+  customModels,
+  getDb,
+  jobs,
+  projects,
+  referenceElements,
+  scenes,
+} from "@/db";
 import { resetRunnerForTests } from "@/lib/jobs/runner";
 import { GET as getFile } from "@/app/api/files/[...path]/route";
 import { POST as generateBatch } from "@/app/api/generate/batch/route";
 import { POST as generateVideo } from "@/app/api/generate/video/route";
 import { POST as createProject } from "@/app/api/projects/route";
+import { DELETE as deleteProject } from "@/app/api/projects/[id]/route";
 import { POST as refineProject } from "@/app/api/projects/[id]/refine/route";
 import { GET as getSettingsStatus } from "@/app/api/settings/status/route";
+import { POST as uploadFile } from "@/app/api/upload/route";
 
 describe("API Route Handlers", () => {
   let tmpRoot: string;
@@ -173,6 +185,176 @@ describe("API Route Handlers", () => {
     expect(existsSync(path.join(projectDir, "elements"))).toBe(true);
     expect(existsSync(path.join(projectDir, "scenes"))).toBe(true);
     expect(existsSync(path.join(projectDir, "export_kdenlive"))).toBe(true);
+  });
+
+  it("DELETE /api/projects/:id removes DB rows and leaves the project folder on disk", async () => {
+    const createRes = await createProject(
+      new Request("http://localhost/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Delete Me", roughIdea: "Temporary." }),
+      }),
+    );
+    const { project } = (await createRes.json()) as {
+      project: { id: string; slug: string };
+    };
+
+    const db = getDb();
+    const now = Date.now();
+    db.insert(referenceElements)
+      .values({
+        id: "elem-del",
+        projectId: project.id,
+        kind: "character",
+        name: "Kira",
+        description: "",
+      })
+      .run();
+    db.insert(scenes)
+      .values({
+        id: "scene-del",
+        projectId: project.id,
+        orderIndex: 0,
+        slug: "01-test",
+        title: "Test",
+        visualPrompt: "Test scene",
+        duration: 5,
+        videoMode: "text_to_video",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    db.insert(assets)
+      .values({
+        id: "asset-del",
+        projectId: project.id,
+        sceneId: "scene-del",
+        type: "image",
+        role: "keyframe_first",
+        version: 1,
+        filePath: `${project.slug}/scenes/01-test/keyframe_first_v1.png`,
+        prompt: "",
+        paramsJson: "{}",
+        createdAt: now,
+      })
+      .run();
+    db.insert(jobs)
+      .values({
+        id: "job-del",
+        projectId: project.id,
+        sceneId: "scene-del",
+        modality: "image",
+        role: "keyframe_first",
+        modelId: "wan2.7-image-pro",
+        requestJson: "{}",
+        status: "QUEUED",
+        attempts: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    const projectDir = path.join(process.env.PROJECTS_DIR!, project.slug);
+    expect(existsSync(projectDir)).toBe(true);
+
+    const res = await deleteProject(
+      new Request(`http://localhost/api/projects/${project.id}`, {
+        method: "DELETE",
+      }),
+      { params: Promise.resolve({ id: project.id }) },
+    );
+    expect(res.status).toBe(200);
+
+    expect(db.select().from(projects).all()).toHaveLength(0);
+    expect(db.select().from(referenceElements).all()).toHaveLength(0);
+    expect(db.select().from(scenes).all()).toHaveLength(0);
+    expect(db.select().from(assets).all()).toHaveLength(0);
+    expect(db.select().from(jobs).all()).toHaveLength(0);
+    expect(existsSync(projectDir)).toBe(true);
+  });
+
+  it("DELETE /api/projects/:id refuses to remove the hidden Quick Clips project", async () => {
+    const db = getDb();
+    const now = Date.now();
+    db.insert(projects)
+      .values({
+        id: "proj-hidden",
+        slug: "_quick-clips",
+        title: "Quick Clips",
+        isHidden: 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    const res = await deleteProject(
+      new Request("http://localhost/api/projects/proj-hidden", {
+        method: "DELETE",
+      }),
+      { params: Promise.resolve({ id: "proj-hidden" }) },
+    );
+
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe("PROJECT_PROTECTED");
+    expect(db.select().from(projects).all()).toHaveLength(1);
+  });
+
+  it("POST /api/upload with an elementId records a versioned asset and sets it active", async () => {
+    const createRes = await createProject(
+      new Request("http://localhost/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Kira Project", roughIdea: "A courier." }),
+      }),
+    );
+    const { project } = (await createRes.json()) as {
+      project: { id: string; slug: string };
+    };
+
+    const db = getDb();
+    db.insert(referenceElements)
+      .values({
+        id: "elem-upload",
+        projectId: project.id,
+        kind: "character",
+        name: "Kira Vance",
+        description: "Courier",
+      })
+      .run();
+
+    const form = new FormData();
+    form.append(
+      "file",
+      new File([new Uint8Array([137, 80, 78, 71])], "kira.png", {
+        type: "image/png",
+      }),
+    );
+    form.append("projectId", project.id);
+    form.append("elementId", "elem-upload");
+
+    const res = await uploadFile(
+      new Request("http://localhost/api/upload", { method: "POST", body: form }),
+    );
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { filePath: string };
+
+    const elementAssets = db
+      .select()
+      .from(assets)
+      .where(eq(assets.elementId, "elem-upload"))
+      .all();
+    expect(elementAssets).toHaveLength(1);
+    expect(elementAssets[0].role).toBe("element_sheet");
+    expect(elementAssets[0].version).toBe(1);
+    expect(elementAssets[0].filePath).toBe(json.filePath);
+
+    const element = db
+      .select()
+      .from(referenceElements)
+      .where(eq(referenceElements.id, "elem-upload"))
+      .get()!;
+    expect(element.activeImagePath).toBe(json.filePath);
   });
 
   it("POST /api/generate/batch with confirm: false returns totals and enqueues 0 jobs", async () => {

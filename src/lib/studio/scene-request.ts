@@ -34,6 +34,27 @@ import {
 import { resolveInsideProjects } from "@/lib/storage/paths";
 
 /** Per-scene media uploaded in Stage 3 (project-relative paths or URLs). */
+/**
+ * Cache prepared media URLs for the lifetime of one batch. Element images are
+ * shared across scenes, so without this the same file is re-encoded or
+ * re-uploaded to OSS once per scene.
+ */
+export function memoizeImagePreparer(
+  prepare: (filePath: string, imageCountInRequest: number) => Promise<string>,
+): (filePath: string, imageCountInRequest: number) => Promise<string> {
+  const cache = new Map<string, Promise<string>>();
+  return (filePath, imageCountInRequest) => {
+    const key = `${imageCountInRequest}\u0000${filePath}`;
+    const existing = cache.get(key);
+    if (existing) {
+      return existing;
+    }
+    const prepared = prepare(filePath, imageCountInRequest);
+    cache.set(key, prepared);
+    return prepared;
+  };
+}
+
 export interface SceneMediaUploads {
   firstFrame?: string;
   lastFrame?: string;

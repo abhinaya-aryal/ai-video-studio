@@ -3,6 +3,7 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import {
+  assets,
   getDb,
   getOrCreateQuickClipProject,
   referenceElements,
@@ -64,16 +65,56 @@ export async function POST(req: Request) {
         : undefined;
 
     if (elementId) {
-      getDb()
-        .update(referenceElements)
-        .set({ activeImagePath: relPath, updatedAt: Date.now() })
+      const db = getDb();
+      const element = db
+        .select()
+        .from(referenceElements)
         .where(
           and(
             eq(referenceElements.id, elementId),
             eq(referenceElements.projectId, project.id),
           ),
         )
-        .run();
+        .get();
+
+      if (element) {
+        const now = Date.now();
+        db.transaction((tx) => {
+          const versions = tx
+            .select({ version: assets.version })
+            .from(assets)
+            .where(
+              and(
+                eq(assets.projectId, project.id),
+                eq(assets.elementId, element.id),
+                eq(assets.role, "element_sheet"),
+              ),
+            )
+            .all();
+          const version =
+            versions.reduce((max, row) => Math.max(max, row.version), 0) + 1;
+
+          tx.insert(assets)
+            .values({
+              id: randomUUID(),
+              projectId: project.id,
+              elementId: element.id,
+              type: "image",
+              role: "element_sheet",
+              version,
+              filePath: relPath,
+              prompt: "",
+              paramsJson: JSON.stringify({ source: "upload" }),
+              createdAt: now,
+            })
+            .run();
+
+          tx.update(referenceElements)
+            .set({ activeImagePath: relPath, updatedAt: now })
+            .where(eq(referenceElements.id, element.id))
+            .run();
+        });
+      }
     }
 
     return apiOk(
