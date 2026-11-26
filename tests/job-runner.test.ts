@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeDbForTests, getDb } from "@/db";
 import { assets, jobs, projects, referenceElements, scenes } from "@/db/schema";
@@ -333,6 +333,78 @@ describe("JobRunner and persistResult", () => {
     );
     const recovered = db.select().from(jobs).where(eq(jobs.id, job.id)).get()!;
     expect(recovered.status).toBe("READY");
+  });
+
+  it("keeps only the newest element image when a new one is persisted", async () => {
+    seedProjectAndScene();
+    const db = getDb();
+    const poll = vi.fn<NonNullable<RunnerDeps["poll"]>>(async () => ({
+      status: "SUCCEEDED",
+      resultUrls: ["https://cdn.example.com/element.png"],
+    }));
+    let frame = 0;
+    const download = vi.fn<NonNullable<RunnerDeps["download"]>>(async () => ({
+      bytes: new Uint8Array([137, 80, 78, 71, frame++]),
+      mime: "image/png",
+    }));
+    const runner = new JobRunner({ submit: vi.fn(), poll, download });
+
+    const runJob = async () => {
+      const job = enqueueJob({
+        projectId: "proj-1",
+        elementId: "elem-1",
+        modality: "image",
+        role: "element_sheet",
+        modelId: "wan2.7-image-pro",
+        request: { prompt: "Kira portrait" },
+      });
+      db.update(jobs)
+        .set({ status: "RUNNING", externalTaskId: `ext-${job.id}` })
+        .where(eq(jobs.id, job.id))
+        .run();
+      await runner.tick();
+      return db.select().from(jobs).where(eq(jobs.id, job.id)).get()!;
+    };
+
+    const firstJob = await runJob();
+    const firstAsset = db
+      .select()
+      .from(assets)
+      .where(eq(assets.id, firstJob.resultAssetId!))
+      .get()!;
+    const firstPath = resolveInsideProjects(firstAsset.filePath);
+    expect(existsSync(firstPath)).toBe(true);
+
+    const secondJob = await runJob();
+    const secondAsset = db
+      .select()
+      .from(assets)
+      .where(eq(assets.id, secondJob.resultAssetId!))
+      .get()!;
+
+    expect(secondAsset.id).not.toBe(firstAsset.id);
+    expect(existsSync(firstPath)).toBe(false);
+    expect(existsSync(resolveInsideProjects(secondAsset.filePath))).toBe(true);
+
+    const elementAssets = db
+      .select()
+      .from(assets)
+      .where(
+        and(
+          eq(assets.elementId, "elem-1"),
+          eq(assets.role, "element_sheet"),
+        ),
+      )
+      .all();
+    expect(elementAssets).toHaveLength(1);
+    expect(elementAssets[0].id).toBe(secondAsset.id);
+
+    const element = db
+      .select()
+      .from(referenceElements)
+      .where(eq(referenceElements.id, "elem-1"))
+      .get()!;
+    expect(element.activeImagePath).toBe(secondAsset.filePath);
   });
 
   it("claims a queued job atomically so two runners cannot submit it twice", async () => {

@@ -20,16 +20,14 @@ export function buildElementImagePrompt(
   styleBible: string,
   promptOverride?: string,
 ): string {
-  const override = promptOverride?.trim();
-  if (override) {
-    return override;
-  }
+  const direction = promptOverride?.trim();
 
   return [
     `${KIND_SUBJECT[element.kind]} for ${element.kind} "${element.name}".`,
     element.description.trim(),
     styleBible.trim() ? `Style: ${styleBible.trim()}` : "",
     "Plain neutral background, consistent design, high detail, one image only, no collage or panel layout.",
+    direction ? `Additional direction: ${direction}` : "",
   ]
     .filter(Boolean)
     .join("\n");

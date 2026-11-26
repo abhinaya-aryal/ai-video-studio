@@ -45,13 +45,18 @@ describe("buildElementImagePrompt", () => {
     expect(prompt.toLowerCase()).not.toContain("reference sheet");
   });
 
-  it("uses a caller-provided prompt verbatim when present", () => {
+  it("appends caller direction without dropping the canonical prompt", () => {
     const prompt = buildElementImagePrompt(
       { ...base, kind: "character" },
       "Warm painterly light",
       "  Close-up portrait on blue paper.  ",
     );
 
-    expect(prompt).toBe("Close-up portrait on blue paper.");
+    expect(prompt).toContain("Single character image");
+    expect(prompt).toContain('"Sita"');
+    expect(prompt).toContain("A calm young woman with long dark hair.");
+    expect(prompt).toContain("Warm painterly light");
+    expect(prompt).toContain("Additional direction: Close-up portrait on blue paper.");
+    expect(prompt).not.toBe("Close-up portrait on blue paper.");
   });
 });

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import {
   assets,
   getDb,
@@ -14,7 +14,11 @@ import {
   handleRouteError,
   requireProject,
 } from "@/lib/api/route-helpers";
-import { ensureProjectDirs, slugify } from "@/lib/storage/paths";
+import {
+  ensureProjectDirs,
+  resolveInsideProjects,
+  slugify,
+} from "@/lib/storage/paths";
 
 function sanitizeExtension(filename: string): string {
   const ext = path.extname(filename).toLowerCase();
@@ -79,6 +83,9 @@ export async function POST(req: Request) {
 
       if (element) {
         const now = Date.now();
+        const assetId = randomUUID();
+        const stalePaths: string[] = [];
+
         db.transaction((tx) => {
           const versions = tx
             .select({ version: assets.version })
@@ -96,7 +103,7 @@ export async function POST(req: Request) {
 
           tx.insert(assets)
             .values({
-              id: randomUUID(),
+              id: assetId,
               projectId: project.id,
               elementId: element.id,
               type: "image",
@@ -109,11 +116,44 @@ export async function POST(req: Request) {
             })
             .run();
 
+          // One canonical image per element: drop the previous upload/generation.
+          const staleAssets = tx
+            .select()
+            .from(assets)
+            .where(
+              and(
+                eq(assets.projectId, project.id),
+                eq(assets.elementId, element.id),
+                eq(assets.role, "element_sheet"),
+                ne(assets.id, assetId),
+              ),
+            )
+            .all();
+          if (staleAssets.length > 0) {
+            tx.delete(assets)
+              .where(
+                inArray(
+                  assets.id,
+                  staleAssets.map((asset) => asset.id),
+                ),
+              )
+              .run();
+            stalePaths.push(...staleAssets.map((asset) => asset.filePath));
+          }
+
           tx.update(referenceElements)
             .set({ activeImagePath: relPath, updatedAt: now })
             .where(eq(referenceElements.id, element.id))
             .run();
         });
+
+        for (const stalePath of stalePaths) {
+          try {
+            unlinkSync(resolveInsideProjects(stalePath));
+          } catch {
+            // Best-effort cleanup.
+          }
+        }
       }
     }
 

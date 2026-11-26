@@ -300,7 +300,7 @@ describe("API Route Handlers", () => {
     expect(db.select().from(projects).all()).toHaveLength(1);
   });
 
-  it("POST /api/upload with an elementId records a versioned asset and sets it active", async () => {
+  it("POST /api/upload keeps only the newest image per element", async () => {
     const createRes = await createProject(
       new Request("http://localhost/api/projects", {
         method: "POST",
@@ -355,6 +355,44 @@ describe("API Route Handlers", () => {
       .where(eq(referenceElements.id, "elem-upload"))
       .get()!;
     expect(element.activeImagePath).toBe(json.filePath);
+
+    const firstAbs = path.join(process.env.PROJECTS_DIR!, json.filePath);
+    expect(existsSync(firstAbs)).toBe(true);
+
+    const secondForm = new FormData();
+    secondForm.append(
+      "file",
+      new File([new Uint8Array([137, 80, 78, 71, 2])], "kira-v2.png", {
+        type: "image/png",
+      }),
+    );
+    secondForm.append("projectId", project.id);
+    secondForm.append("elementId", "elem-upload");
+
+    const secondRes = await uploadFile(
+      new Request("http://localhost/api/upload", {
+        method: "POST",
+        body: secondForm,
+      }),
+    );
+    expect(secondRes.status).toBe(201);
+    const secondJson = (await secondRes.json()) as { filePath: string };
+
+    const remainingAssets = db
+      .select()
+      .from(assets)
+      .where(eq(assets.elementId, "elem-upload"))
+      .all();
+    expect(remainingAssets).toHaveLength(1);
+    expect(remainingAssets[0].filePath).toBe(secondJson.filePath);
+    expect(existsSync(firstAbs)).toBe(false);
+
+    const updatedElement = db
+      .select()
+      .from(referenceElements)
+      .where(eq(referenceElements.id, "elem-upload"))
+      .get()!;
+    expect(updatedElement.activeImagePath).toBe(secondJson.filePath);
   });
 
   it("POST /api/generate/batch with confirm: false returns totals and enqueues 0 jobs", async () => {

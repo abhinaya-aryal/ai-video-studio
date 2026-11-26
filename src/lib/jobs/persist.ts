@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   getDb,
   assets,
@@ -246,7 +246,10 @@ export async function persistResult(
   const now = Date.now();
   const assetId = randomUUID();
 
-  return db.transaction((tx) => {
+  // Files are removed only after the DB transaction commits.
+  const staleElementImagePaths: string[] = [];
+
+  const persistedAsset = db.transaction((tx) => {
     const recheckJob = tx
       .select()
       .from(jobs)
@@ -280,12 +283,38 @@ export async function persistResult(
     tx.insert(assets).values(newAsset).run();
 
     if (job.elementId && job.role === "element_sheet" && element) {
-      if (!element.activeImagePath) {
-        tx.update(referenceElements)
-          .set({ activeImagePath: filePath, updatedAt: now })
-          .where(eq(referenceElements.id, element.id))
+      // One canonical image per element: drop the previous image and its file.
+      const staleAssets = tx
+        .select()
+        .from(assets)
+        .where(
+          and(
+            eq(assets.projectId, job.projectId),
+            eq(assets.elementId, element.id),
+            eq(assets.role, "element_sheet"),
+            ne(assets.id, assetId),
+          ),
+        )
+        .all();
+
+      if (staleAssets.length > 0) {
+        tx.delete(assets)
+          .where(
+            inArray(
+              assets.id,
+              staleAssets.map((asset) => asset.id),
+            ),
+          )
           .run();
+        staleElementImagePaths.push(
+          ...staleAssets.map((asset) => asset.filePath),
+        );
       }
+
+      tx.update(referenceElements)
+        .set({ activeImagePath: filePath, updatedAt: now })
+        .where(eq(referenceElements.id, element.id))
+        .run();
     }
 
     if (job.sceneId && scene) {
@@ -336,4 +365,14 @@ export async function persistResult(
 
     return newAsset;
   });
+
+  for (const stalePath of staleElementImagePaths) {
+    try {
+      unlinkSync(resolveInsideProjects(stalePath));
+    } catch {
+      // Best-effort cleanup: a missing or unsafe old file must not fail the job.
+    }
+  }
+
+  return persistedAsset;
 }

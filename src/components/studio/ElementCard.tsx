@@ -2,7 +2,6 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
-  CheckCircle2,
   ImageIcon,
   Loader2,
   RotateCcw,
@@ -10,17 +9,23 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Asset, ElementKind, Job, ReferenceElement } from "@/db/schema";
+import type { ElementKind, Job, ReferenceElement } from "@/db/schema";
 import { JobStatusBadge } from "@/components/JobStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ElementCardProps {
   projectId: string;
   element: ReferenceElement;
-  assets: Asset[];
+  elements: ReferenceElement[];
   jobs: Job[];
   onRefreshProject: () => Promise<void>;
   onRefreshJobs: () => Promise<void>;
@@ -36,7 +41,7 @@ const KIND_BADGE_VARIANT: Record<ElementKind, "accent" | "info" | "warning"> = {
 export function ElementCard({
   projectId,
   element,
-  assets,
+  elements,
   jobs,
   onRefreshProject,
   onRefreshJobs,
@@ -46,19 +51,29 @@ export function ElementCard({
   const [promptOverride, setPromptOverride] = useState("");
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [settingActivePath, setSettingActivePath] = useState<string | null>(
+  const [referenceSelection, setReferenceSelection] = useState<string | null>(
     null,
   );
 
-  const imageAssets = useMemo(
+  const referenceOptions = useMemo(
     () =>
-      assets
-        .filter(
-          (a) => a.elementId === element.id && a.role === "element_sheet",
-        )
-        .sort((a, b) => b.version - a.version),
-    [assets, element.id],
+      elements.filter(
+        (el) =>
+          el.id !== element.id &&
+          Boolean(el.activeImagePath && el.activeImagePath.trim()),
+      ),
+    [elements, element.id],
   );
+
+  const referenceSource =
+    referenceSelection ?? (element.activeImagePath ? "self" : "none");
+  const referencePath =
+    referenceSource === "self"
+      ? (element.activeImagePath ?? undefined)
+      : referenceSource === "none"
+        ? undefined
+        : (elements.find((el) => el.id === referenceSource)
+            ?.activeImagePath ?? undefined);
 
   const latestJob = useMemo(
     () =>
@@ -85,6 +100,9 @@ export function ElementCard({
           projectId,
           elementId: element.id,
           ...(promptOverride.trim() ? { prompt: promptOverride.trim() } : {}),
+          ...(referencePath
+            ? { referenceAssetPaths: [referencePath] }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -131,32 +149,6 @@ export function ElementCard({
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-    }
-  };
-
-  const handleSetActive = async (filePath: string) => {
-    setSettingActivePath(filePath);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/elements`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: element.id,
-          activeImagePath: filePath,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Failed to set active image");
-      }
-      toast.success(`Updated active image for "${element.name}"`);
-      await onRefreshProject();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to set active image",
-      );
-    } finally {
-      setSettingActivePath(null);
     }
   };
 
@@ -218,10 +210,44 @@ export function ElementCard({
         )}
       </div>
 
+      <div className="space-y-1.5">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          Reference image
+        </label>
+        <Select
+          value={referenceSource}
+          onValueChange={(value) => setReferenceSelection(value ?? "none")}
+        >
+          <SelectTrigger className="h-8 w-full text-xs">
+            <SelectValue>
+              {referenceSource === "none"
+                ? "No reference"
+                : referenceSource === "self"
+                  ? "This element (current image)"
+                  : (referenceOptions.find((el) => el.id === referenceSource)
+                      ?.name ?? "No reference")}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No reference</SelectItem>
+            {element.activeImagePath && (
+              <SelectItem value="self">
+                This element (current image)
+              </SelectItem>
+            )}
+            {referenceOptions.map((el) => (
+              <SelectItem key={el.id} value={el.id}>
+                {el.name} ({el.kind})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Input
         value={promptOverride}
         onChange={(e) => setPromptOverride(e.target.value)}
-        placeholder="Optional custom image prompt..."
+        placeholder="Optional extra direction (costume, mood, style)..."
         className="h-8 text-xs"
       />
 
@@ -268,63 +294,6 @@ export function ElementCard({
         />
       </div>
 
-      {imageAssets.length > 0 && (
-        <div className="mt-auto space-y-1.5 border-t border-border pt-2.5">
-          <div className="text-[11px] font-medium text-muted-foreground">
-            Version History ({imageAssets.length})
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {imageAssets.map((asset) => {
-              const isActive = element.activeImagePath === asset.filePath;
-              return (
-                <div
-                  key={asset.id}
-                  className="flex shrink-0 flex-col items-center gap-1"
-                >
-                  <div
-                    className={cn(
-                      "relative size-14 overflow-hidden rounded-lg border",
-                      isActive
-                        ? "border-primary ring-2 ring-primary/40"
-                        : "border-border",
-                    )}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/files/${asset.filePath}`}
-                      alt={`${element.name} v${asset.version}`}
-                      className="h-full w-full object-cover"
-                    />
-                    <span className="absolute right-0.5 bottom-0.5 rounded bg-black/70 px-1 font-mono text-[9px] text-white">
-                      v{asset.version}
-                    </span>
-                  </div>
-                  {isActive ? (
-                    <span className="flex items-center gap-0.5 text-[10px] font-medium text-primary">
-                      <CheckCircle2 className="size-3" /> Active
-                    </span>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 px-1.5 text-[10px]"
-                      disabled={settingActivePath === asset.filePath}
-                      onClick={() => handleSetActive(asset.filePath)}
-                    >
-                      {settingActivePath === asset.filePath ? (
-                        <Loader2 className="size-2.5 animate-spin" />
-                      ) : (
-                        "Set Active"
-                      )}
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </article>
+      </article>
   );
 }

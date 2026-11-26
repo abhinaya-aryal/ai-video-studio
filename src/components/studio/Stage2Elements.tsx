@@ -179,7 +179,7 @@ export function Stage2Elements({
                 key={element.id}
                 projectId={project.id}
                 element={element}
-                assets={assets}
+                elements={elements}
                 jobs={jobs}
                 onRefreshProject={onRefreshProject}
                 onRefreshJobs={onRefreshJobs}

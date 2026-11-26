@@ -400,22 +400,22 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     summary:
       "Each element needs one canonical image. Generating or uploading a single image gives every keyframe and clip a consistent visual anchor, while the video model handles poses and expressions.",
     bullets: [
-      "Generate Image uses the element description plus the project Style Bible.",
+      "Generate Image always uses the element description plus the project Style Bible.",
       "Upload accepts one image and makes it the active image immediately.",
-      "Version History keeps every image so you can switch the active one without losing earlier versions.",
+      "Each element keeps one canonical image. A new generation or upload replaces the previous image and file.",
     ],
     details: [
       {
         label: "Generate Image",
-        text: "Optionally add a custom image prompt, then queue generation. The button shows Generating while the job runs and disables duplicate submissions.",
+        text: "Optionally add extra direction. It is appended to the full canonical prompt, so the element description and Style Bible are never dropped. The button shows Generating while the job runs and disables duplicate submissions.",
+      },
+      {
+        label: "Reference image",
+        text: "Choose No reference, This element (the current image), or another element that already has an image. A selected image is sent to the model as a visual anchor for style and identity.",
       },
       {
         label: "Upload",
-        text: "Choose one image file from disk. The file is copied into the project's elements/ folder, recorded as a new version, and set as the active image. Uploads do not call the provider.",
-      },
-      {
-        label: "Version History",
-        text: "Lists every element image with a thumbnail and version number. The active image is marked; Set Active switches the reference used by later generations.",
+        text: "Choose one image file from disk. The file is copied into the project's elements/ folder, replaces the previous image, and becomes the active reference. Uploads do not call the provider.",
       },
       {
         label: "No image yet",
@@ -423,7 +423,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Retry",
-        text: "A failed image job exposes a retry button on the card. Retries reuse the same parameters and create a new version.",
+        text: "A failed image job exposes a retry button on the card. Retries reuse the same parameters and replace the previous image on success.",
       },
     ],
     where: "Project → Elements & Keyframes → Element Images",
