@@ -153,6 +153,12 @@ describe("Model capability catalog", () => {
           resolutions: ["720P", "1080P"],
           nativeAudio: true,
         }),
+        source: "manual",
+        providerCreatedAt: null,
+        lastSeenAt: null,
+        available: 1,
+        ignored: 0,
+        capabilitiesEdited: 0,
       },
     ];
 

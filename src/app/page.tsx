@@ -36,6 +36,13 @@ import { Textarea } from "@/components/ui/textarea";
 
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1"] as const;
 const RESOLUTIONS = ["480P", "720P", "1080P"] as const;
+const ROLE_LABELS: Record<string, string> = {
+  text_refine: "Story refine",
+  text_polish: "Prompt polish",
+  image: "Images",
+  video: "Video",
+  audio: "Voiceover",
+};
 
 export default function ProjectsDashboardPage() {
   const router = useRouter();
@@ -43,6 +50,7 @@ export default function ProjectsDashboardPage() {
   const [presets, setPresets] = useState<StylePreset[]>([]);
   const [videoModels, setVideoModels] = useState<ModelCapability[]>([]);
   const [configured, setConfigured] = useState<boolean>(true);
+  const [unresolvedRoles, setUnresolvedRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -53,8 +61,7 @@ export default function ProjectsDashboardPage() {
   const [styleBible, setStyleBible] = useState("");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   const [resolution, setResolution] = useState<string>("720P");
-  const [defaultVideoModel, setDefaultVideoModel] =
-    useState<string>("wan3.0-video");
+  const [defaultVideoModel, setDefaultVideoModel] = useState<string>("");
 
   useEffect(() => {
     let active = true;
@@ -84,10 +91,15 @@ export default function ProjectsDashboardPage() {
             )
           : [];
         setVideoModels(models);
-        if (statusData?.qwen?.models?.video) {
-          setDefaultVideoModel(statusData.qwen.models.video);
-        }
         setConfigured(Boolean(statusData?.configured));
+        const resolvedRows = Array.isArray(modelData.resolved)
+          ? modelData.resolved
+          : [];
+        setUnresolvedRoles(
+          resolvedRows
+            .filter((row: { modelId?: string | null }) => !row.modelId)
+            .map((row: { slot: string }) => row.slot),
+        );
       } catch {
         if (active) toast.error("Failed to load dashboard data");
       } finally {
@@ -128,7 +140,7 @@ export default function ProjectsDashboardPage() {
           stylePresetId: stylePresetId === "none" ? null : stylePresetId,
           aspectRatio,
           resolution,
-          defaultVideoModel,
+          defaultVideoModel: defaultVideoModel || undefined,
         }),
       });
       const data = await res.json();
@@ -154,6 +166,22 @@ export default function ProjectsDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {unresolvedRoles.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-xs text-warning">
+          <span>
+            No model is chosen for:{" "}
+            {unresolvedRoles.map((role) => ROLE_LABELS[role] ?? role).join(", ")}.
+            Generation stays blocked until each role resolves.
+          </span>
+          <a
+            href="/settings/models"
+            className="rounded-md border border-warning/50 px-2.5 py-1 font-medium hover:bg-warning/20"
+          >
+            Choose models
+          </a>
+        </div>
+      )}
+
       <PageHeader
         eyebrow="Workspace"
         title={<span className="prism-text">Projects</span>}
@@ -293,17 +321,21 @@ export default function ProjectsDashboardPage() {
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium">Video Model</label>
                       <Select
-                        value={defaultVideoModel}
-                        onValueChange={(v) => v && setDefaultVideoModel(v)}
+                        value={defaultVideoModel || "__inherit__"}
+                        onValueChange={(v) =>
+                          setDefaultVideoModel(v === "__inherit__" ? "" : (v ?? ""))
+                        }
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue>{defaultVideoModel}</SelectValue>
+                          <SelectValue>
+                            {defaultVideoModel || "Inherit global selection"}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {(videoModels.length > 0
-                            ? videoModels
-                            : [{ modelId: "wan3.0-video" } as ModelCapability]
-                          ).map((m) => (
+                          <SelectItem value="__inherit__">
+                            Inherit global selection
+                          </SelectItem>
+                          {videoModels.map((m) => (
                             <SelectItem key={m.modelId} value={m.modelId}>
                               {m.modelId}
                             </SelectItem>

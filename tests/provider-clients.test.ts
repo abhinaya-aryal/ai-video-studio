@@ -42,12 +42,6 @@ function makeTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       apiKey: "sk-sp-testkey1234",
       keyType: "token_plan",
       region: "ap-southeast-1",
-      models: {
-        text: "qwen-plus",
-        image: "wan2.7-image-pro",
-        video: "wan3.0-video",
-        tts: "qwen-audio-3.0-tts-plus",
-      },
     },
     textProvider: "qwen",
     jobs: {
@@ -446,12 +440,6 @@ describe("QwenCloud client", () => {
         keyType: "token_plan",
         region: "ap-southeast-1",
         baseUrlOverride: "https://dashscope-intl.aliyuncs.com",
-        models: {
-          text: "qwen-plus",
-          image: "wan2.7-image-pro",
-          video: "wan3.0-video",
-          tts: "qwen-audio-3.0-tts-plus",
-        },
       },
     });
 
@@ -522,7 +510,9 @@ describe("OpenAI-compatible text client and provider routing", () => {
         { status: 200 },
       ),
     );
-    const qwenChat = getTextChat(makeTestConfig(), qwenFetch);
+    const qwenChat = getTextChat(makeTestConfig(), qwenFetch, {
+      modelId: "qwen-plus",
+    });
     const qwenReply = await qwenChat([{ role: "user", content: "hi" }]);
     expect(qwenReply).toBe("from-qwen");
     expect(qwenFetch.mock.calls[0][0]).toBe(

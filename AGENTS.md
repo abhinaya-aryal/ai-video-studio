@@ -13,8 +13,9 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/lib/ui/status.ts` — Semantic status tone mapping (`jobStatusTone()`, `StatusTone`), consumed by `JobStatusBadge` and semantic `Badge` variants.
 - `src/lib/config.ts` — Lazy `zod`-validated environment configuration (`getConfig()`) and `maskApiKey()`.
 - `src/lib/storage/paths.ts` — Safe `PROJECTS_DIR` path resolution (`UnsafePathError`), slugification, project folder scaffolding, and `story.md` writer.
-- `src/db/` — SQLite via `better-sqlite3` + Drizzle ORM (`${DATA_DIR}/studio.db`) and `drizzle-kit` migrations (`drizzle/`). Stores non-secret project, element, scene, asset, job, custom model, and style preset state.
-- `src/lib/providers/` — Model capability catalog (`catalog.ts`), QwenCloud / DashScope endpoint routing (`qwen-endpoints.ts`), Wan request validation & prompt builder (`wan-payload.ts`), shared provider types (`types.ts`), temporary OSS upload (`qwen-oss.ts`), QwenCloud client (`qwen-client.ts`), OpenAI-compatible text client (`openai-text.ts`), text provider selector (`text.ts`), and provider error mapping (`errors.ts`).
+- `src/db/` — SQLite via `better-sqlite3` + Drizzle ORM (`${DATA_DIR}/studio.db`) and `drizzle-kit` migrations (`drizzle/`). Stores non-secret project, element, scene, asset, job, model registry (`custom_models`), role selections (`model_selections`), Auto preset (`model_preferences`), usage events, and style preset state. Model defaults live in the database, never in env vars.
+- `src/lib/providers/` — Model capability catalog (`catalog.ts`), provider model discovery & inference (`model-sync.ts`, `model-inference.ts`), role selection & Auto presets (`model-selection.ts`), QwenCloud / DashScope endpoint routing (`qwen-endpoints.ts`), Wan request validation & prompt builder (`wan-payload.ts`), shared provider types (`types.ts`), temporary OSS upload (`qwen-oss.ts`), QwenCloud client (`qwen-client.ts`), OpenAI-compatible text client (`openai-text.ts`), text provider selector (`text.ts`), and provider error mapping (`errors.ts`).
+- `src/lib/usage/record.ts` — Provider token-usage extraction and best-effort persistence (`usage_events`).
 - `src/lib/refiner/story-refiner.ts` — Zod-validated story & scene refiner (`refineStoryAndScenes`), prompt polisher (`polishPrompt`), fence stripping + one-shot repair retry (`RefinerError`), and case-insensitive element name resolution (`resolveLinkedElementIds`).
 - `src/lib/jobs/` — Background job runner (`runner.ts` with `enqueueJob`, `getRunner()`, `JobRunner` concurrency/backoff/resume) and idempotent local asset persistence (`persist.ts` with `persistResult`).
 - `src/instrumentation.ts` — Next.js `register()` hook that calls `getRunner().resume()` and `getRunner().start()` on the Node.js runtime.
@@ -27,7 +28,7 @@ Unified Next.js App Router application (local-first; all provider calls, OSS upl
 - `src/lib/api/` — Shared API route JSON parsing, error mapping (`handleRouteError`), and project/scene/element lookup helpers (`route-helpers.ts`).
 - `tests/` — Vitest unit and integration suites (`environment: "node"`, `@/*` -> `./src/*`).
 - `docs/superpowers/` — Design spec and implementation plan (read-only reference).
-- Runtime directories (gitignored): `${DATA_DIR}` (`./data`) and `${PROJECTS_DIR}` (`./projects/<slug>/`).
+- Runtime directories: `${DATA_DIR}` (default `./data`, gitignored) and `${PROJECTS_DIR}` (default `~/projects/<slug>/`, outside the repo). Path settings expand a leading `~`.
 
 ## Global Constraints
 

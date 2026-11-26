@@ -65,7 +65,7 @@ const RATIOS = ["16:9", "9:16", "1:1"] as const;
 
 export default function QuickClipPage() {
   const [videoModels, setVideoModels] = useState<ModelCapability[]>([]);
-  const [modelId, setModelId] = useState("wan3.0-video");
+  const [modelId, setModelId] = useState("");
   const [mode, setMode] = useState<VideoMode>("text_to_video");
   const [prompt, setPrompt] = useState("");
   const [audioMode, setAudioMode] = useState<AudioMode>("ambient_only");
@@ -93,15 +93,13 @@ export default function QuickClipPage() {
   useEffect(() => {
     async function init() {
       try {
-        const [modelsRes, statusRes, projectsRes] = await Promise.all([
+        const [modelsRes, projectsRes] = await Promise.all([
           fetch("/api/settings/models", { cache: "no-store" }),
-          fetch("/api/settings/status", { cache: "no-store" }),
           fetch("/api/projects?includeHidden=1", { cache: "no-store" }),
         ]);
 
-        const [modelsData, statusData, projectsData] = await Promise.all([
+        const [modelsData, projectsData] = await Promise.all([
           modelsRes.json(),
-          statusRes.json(),
           projectsRes.json(),
         ]);
 
@@ -111,10 +109,6 @@ export default function QuickClipPage() {
             )
           : [];
         setVideoModels(vids);
-
-        if (statusData?.qwen?.models?.video) {
-          setModelId(statusData.qwen.models.video);
-        }
 
         const quickProject = (
           Array.isArray(projectsData.projects) ? projectsData.projects : []
@@ -294,7 +288,22 @@ export default function QuickClipPage() {
       if (!res.ok) {
         throw new Error(data?.error?.message ?? "Failed to polish prompt");
       }
-      setPrompt(data.polished);
+      const result = data.polished;
+      if (typeof result === "string") {
+        setPrompt(result);
+      } else if (result?.visualPrompt) {
+        setPrompt(
+          [
+            result.visualPrompt,
+            result.cameraDirection ? `Camera: ${result.cameraDirection}` : "",
+            result.audioScript ? `Audio: ${result.audioScript}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        );
+      } else {
+        throw new Error("The text model returned an empty prompt");
+      }
       toast.success("Prompt polished");
     } catch (err) {
       const msg =
@@ -310,6 +319,10 @@ export default function QuickClipPage() {
     e.preventDefault();
     if (!prompt.trim()) {
       toast.error("Please enter a prompt");
+      return;
+    }
+    if (!modelId) {
+      setSubmitError("Choose a video model before generating a clip.");
       return;
     }
     if (!modeState.canSubmit) {
@@ -452,17 +465,21 @@ export default function QuickClipPage() {
               <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
                 <label className="text-xs font-medium">Model</label>
                 <Select
-                  value={modelId}
-                  onValueChange={(v) => v && setModelId(v)}
+                  value={modelId || "__none__"}
+                  onValueChange={(v) =>
+                    setModelId(v === "__none__" ? "" : (v ?? ""))
+                  }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue>{modelId}</SelectValue>
+                    <SelectValue>
+                      {modelId || "Select a model"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {(videoModels.length > 0
-                      ? videoModels
-                      : [DEFAULT_CAPABILITY]
-                    ).map((m) => (
+                    <SelectItem value="__none__" disabled>
+                      Select a model
+                    </SelectItem>
+                    {videoModels.map((m) => (
                       <SelectItem key={m.modelId} value={m.modelId}>
                         {m.modelId}
                       </SelectItem>
@@ -563,6 +580,12 @@ export default function QuickClipPage() {
             )}
 
             <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
+              {!modelId && (
+                <span className="text-xs text-warning">
+                  Choose a video model above. Sync models in Settings if the
+                  list is empty.
+                </span>
+              )}
               {!modeState.canSubmit && (
                 <span className="text-xs text-warning">
                   Attach a First Frame or switch mode to submit.
@@ -571,7 +594,9 @@ export default function QuickClipPage() {
               <Button
                 type="submit"
                 size="lg"
-                disabled={submitting || !modeState.canSubmit || !prompt.trim()}
+                disabled={
+                  submitting || !modeState.canSubmit || !prompt.trim() || !modelId
+                }
                 className="gap-2 px-5"
               >
                 {submitting ? (

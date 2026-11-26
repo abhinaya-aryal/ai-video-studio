@@ -4,6 +4,7 @@ import {
   parseProviderErrorResponse,
   sanitizeErrorText,
 } from "@/lib/providers/errors";
+import { extractChatUsage, type TokenUsage } from "@/lib/usage/record";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -14,6 +15,8 @@ export interface ChatCompletionOptions {
   maxTokens?: number;
   temperature?: number;
   responseFormat?: { type: "json_object" | "text" };
+  /** Called with the provider usage block when the response includes one. */
+  onUsage?: (usage: TokenUsage) => void;
 }
 
 export type ChatCompletionFn = (
@@ -38,6 +41,7 @@ export async function chatCompletion({
   maxTokens,
   temperature,
   responseFormat,
+  onUsage,
   fetchFn = fetch,
 }: ChatCompletionParams): Promise<string> {
   const cleanBase = baseUrl.replace(/\/+$/, "");
@@ -68,6 +72,7 @@ export async function chatCompletion({
 
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string | null } }>;
+    usage?: unknown;
   };
   const content = json.choices?.[0]?.message?.content;
   if (typeof content !== "string") {
@@ -76,6 +81,15 @@ export async function chatCompletion({
       502,
       "Chat completion response missing choices[0].message.content",
     );
+  }
+
+  const usage = extractChatUsage(json);
+  if (usage && onUsage) {
+    try {
+      onUsage(usage);
+    } catch {
+      // Observability must not break generation.
+    }
   }
 
   return content;

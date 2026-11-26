@@ -141,6 +141,9 @@ export function Stage3Video({
   );
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [videoModels, setVideoModels] = useState<ModelCapability[]>([]);
+  const [resolvedVideoModel, setResolvedVideoModel] = useState<string | null>(
+    null,
+  );
   const [droppedByScene, setDroppedByScene] = useState<
     Record<string, string[]>
   >({});
@@ -161,6 +164,12 @@ export function Stage3Video({
               (m: ModelCapability) => m.modality === "video",
             ),
           );
+          const resolved = Array.isArray(data.resolved)
+            ? data.resolved.find(
+                (entry: { slot?: string }) => entry.slot === "video",
+              )
+            : undefined;
+          setResolvedVideoModel(resolved?.modelId ?? null);
         }
       } catch {
         // Fallback to DEFAULT_VIDEO_CAPABILITY
@@ -171,11 +180,14 @@ export function Stage3Video({
     };
   }, []);
 
+  const effectiveVideoModel =
+    project.defaultVideoModel ?? resolvedVideoModel ?? null;
+
   const capability = useMemo(
     () =>
-      videoModels.find((m) => m.modelId === project.defaultVideoModel) ??
+      videoModels.find((m) => m.modelId === effectiveVideoModel) ??
       DEFAULT_VIDEO_CAPABILITY,
-    [videoModels, project.defaultVideoModel],
+    [videoModels, effectiveVideoModel],
   );
 
   const assetsById = useMemo(
@@ -244,7 +256,7 @@ export function Stage3Video({
         body: JSON.stringify({
           projectId: project.id,
           sceneId,
-          modelId: project.defaultVideoModel,
+          modelId: effectiveVideoModel ?? undefined,
           ...(uploads ? { uploads } : {}),
         }),
       });
@@ -488,7 +500,7 @@ export function Stage3Video({
             <Button
               type="button"
               size="sm"
-              disabled={scenes.length === 0}
+              disabled={scenes.length === 0 || !effectiveVideoModel}
               onClick={() => setBatchOpen(true)}
               className="gap-1.5"
             >
@@ -741,7 +753,7 @@ export function Stage3Video({
         projectId={project.id}
         kind="clips"
         sceneIds={sceneIds}
-        modelId={project.defaultVideoModel}
+        modelId={effectiveVideoModel ?? undefined}
         uploadsByScene={uploadsByScene}
         onDroppedElements={(dropped) =>
           setDroppedByScene((prev) => ({ ...prev, ...dropped }))

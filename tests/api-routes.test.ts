@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { closeDbForTests, getDb, jobs, projects, scenes } from "@/db";
+import { closeDbForTests, customModels, getDb, jobs, projects, scenes } from "@/db";
 import { resetRunnerForTests } from "@/lib/jobs/runner";
 import { GET as getFile } from "@/app/api/files/[...path]/route";
 import { POST as generateBatch } from "@/app/api/generate/batch/route";
@@ -27,6 +27,32 @@ describe("API Route Handlers", () => {
     process.env.PROJECTS_DIR = path.join(tmpRoot, "projects");
     process.env.QWEN_API_KEY = "sk-sp-supersecretkeyvalue9999";
     process.env.QWEN_REGION = "ap-southeast-1";
+
+    getDb()
+      .insert(customModels)
+      .values([
+        {
+          id: "seed-video",
+          modelId: "wan3.0-video",
+          displayName: "wan3.0-video",
+          modality: "video",
+          family: "wan3",
+          capabilitiesJson: "{}",
+          source: "discovered",
+          available: 1,
+        },
+        {
+          id: "seed-image",
+          modelId: "wan2.7-image-pro",
+          displayName: "wan2.7-image-pro",
+          modality: "image",
+          family: "wan2.7",
+          capabilitiesJson: "{}",
+          source: "discovered",
+          available: 1,
+        },
+      ])
+      .run();
   });
 
   afterEach(() => {

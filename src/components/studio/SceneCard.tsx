@@ -186,9 +186,21 @@ export function SceneCard({
       if (!res.ok) {
         throw new Error(data?.error?.message ?? "Failed to polish prompt");
       }
-      if (typeof data.polished === "string" && data.polished.trim()) {
-        setVisualPrompt(data.polished.trim());
+      const result = data.polished;
+      if (typeof result === "string" && result.trim()) {
+        setVisualPrompt(result.trim());
         toast.success("Visual prompt polished");
+      } else if (result?.visualPrompt) {
+        setVisualPrompt(result.visualPrompt);
+        if (result.cameraDirection) {
+          setCameraDirection(result.cameraDirection);
+        }
+        if (result.audioScript) {
+          setAudioScript(result.audioScript);
+        }
+        toast.success("Prompt, camera, and audio polished");
+      } else {
+        throw new Error("The text model returned an empty prompt");
       }
     } catch (err) {
       toast.error(

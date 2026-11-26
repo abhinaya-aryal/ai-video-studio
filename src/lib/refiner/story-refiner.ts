@@ -8,6 +8,10 @@ import {
   type VideoMode,
 } from "@/db/schema";
 import type { ChatCompletionFn, ChatMessage } from "@/lib/providers/openai-text";
+import {
+  audioDirective,
+  buildPromptFramework,
+} from "@/lib/refiner/prompt-framework";
 
 export type { AudioMode, ElementKind, VideoMode };
 
@@ -221,18 +225,23 @@ export async function refineStoryAndScenes({
     "Expand the user's rough idea into a structured storyboard JSON object.",
     "Return ONLY valid JSON with these exact top-level keys:",
     '- "refinedStory": string (polished narrative synopsis)',
-    '- "styleBible": string (visual style, lighting, lens, color palette, mood)',
+    '- "styleBible": string (specific visual register, reference world, lighting, lens, palette; never just "cinematic")',
     `- "elements": array of { "kind": ${ELEMENT_KINDS.map((k) => `"${k}"`).join(" | ")}, "name": string, "description": string }`,
     '- "scenes": non-empty array of {',
     '    "title": string,',
     '    "linkedElementNames": string[] (exact names from elements[]),',
-    '    "visualPrompt": string (detailed visual action and composition),',
-    '    "cameraDirection": string (shot framing and camera movement),',
+    '    "visualPrompt": string (style, lighting, location, action, and the text note, following the six dimensions),',
+    '    "cameraDirection": string (shot size plus a camera term from the vocabulary),',
     `    "audioMode": ${AUDIO_MODES.map((m) => `"${m}"`).join(" | ")},`,
-    '    "audioScript": string (dialogue, narration, or ambient sound cue; empty string if silent),',
+    '    "audioScript": string (the explicit audio directive; empty string only when audioMode is silent),',
     '    "duration": integer between 2 and 30 (seconds),',
     `    "videoMode": ${VIDEO_MODES.map((m) => `"${m}"`).join(" | ")}`,
     "  }",
+    "",
+    buildPromptFramework(),
+    "",
+    "Apply the six dimensions to every scene. visualPrompt carries style, lighting, location, action, and the text note. cameraDirection carries framing and movement. audioScript carries the audio directive and must match the selected audioMode.",
+    "The styleBible must stay consistent across scenes and name a concrete visual register.",
   ].join("\n");
 
   const userLines = [`Rough idea: ${cleanIdea}`];
@@ -273,10 +282,16 @@ export async function polishPrompt({
   const systemPrompt = [
     "You are an AI cinematography prompt engineer.",
     "Rewrite the user's prompt draft into production-ready video generation fields.",
+    "Preserve every detail already in the draft. Change only what the user asks to change.",
     "Return ONLY valid JSON with these exact keys:",
-    '- "visualPrompt": string (vivid, concrete visual prompt)',
-    '- "cameraDirection": string (framing, lens, and camera motion)',
-    '- "audioScript": string (dialogue, narration, or ambient audio description; empty if silent)',
+    '- "visualPrompt": string (style, lighting, location, action, and the text note, following the six dimensions)',
+    '- "cameraDirection": string (shot size plus a camera term from the vocabulary)',
+    '- "audioScript": string (the explicit audio directive for the selected audio mode)',
+    "",
+    buildPromptFramework(),
+    "",
+    audioDirective(context.audioMode),
+    "Put visible text in visualPrompt and write \"No text.\" when the shot has none.",
   ].join("\n");
 
   const userLines = [`Draft prompt: ${cleanText}`];

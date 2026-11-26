@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
 
@@ -14,12 +15,6 @@ export interface AppConfig {
     region: QwenRegion;
     workspaceId?: string;
     baseUrlOverride?: string;
-    models: {
-      text: string;
-      image: string;
-      video: string;
-      tts: string;
-    };
   };
   textProvider: TextProvider;
   openaiCompat?: {
@@ -39,10 +34,19 @@ function emptyToUndefined(value: string | undefined): string | undefined {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
+/** Expand a leading `~` to the current user's home directory. */
+function expandHome(value: string): string {
+  if (value === "~") return os.homedir();
+  if (value.startsWith("~/") || value.startsWith("~\\")) {
+    return path.join(os.homedir(), value.slice(2));
+  }
+  return value;
+}
+
 const EnvSchema = z
   .object({
     DATA_DIR: z.string().default("data"),
-    PROJECTS_DIR: z.string().default("projects"),
+    PROJECTS_DIR: z.string().default("~/projects"),
     QWEN_API_KEY: z.string().optional(),
     QWEN_KEY_TYPE: z.enum(["auto", "token_plan", "standard"]).default("auto"),
     QWEN_REGION: z
@@ -50,10 +54,6 @@ const EnvSchema = z
       .default("ap-southeast-1"),
     QWEN_WORKSPACE_ID: z.string().optional(),
     QWEN_BASE_URL: z.string().url().optional(),
-    QWEN_TEXT_MODEL: z.string().min(1).default("qwen-plus"),
-    QWEN_IMAGE_MODEL: z.string().min(1).default("wan2.7-image-pro"),
-    QWEN_VIDEO_MODEL: z.string().min(1).default("wan3.0-video"),
-    QWEN_TTS_MODEL: z.string().min(1).default("qwen-audio-3.0-tts-plus"),
     TEXT_PROVIDER: z.enum(["qwen", "openai_compat"]).default("qwen"),
     OPENAI_COMPAT_BASE_URL: z.string().url().optional(),
     OPENAI_COMPAT_API_KEY: z.string().optional(),
@@ -105,10 +105,6 @@ export function getConfig(): AppConfig {
     QWEN_REGION: emptyToUndefined(process.env.QWEN_REGION),
     QWEN_WORKSPACE_ID: emptyToUndefined(process.env.QWEN_WORKSPACE_ID),
     QWEN_BASE_URL: emptyToUndefined(process.env.QWEN_BASE_URL),
-    QWEN_TEXT_MODEL: emptyToUndefined(process.env.QWEN_TEXT_MODEL),
-    QWEN_IMAGE_MODEL: emptyToUndefined(process.env.QWEN_IMAGE_MODEL),
-    QWEN_VIDEO_MODEL: emptyToUndefined(process.env.QWEN_VIDEO_MODEL),
-    QWEN_TTS_MODEL: emptyToUndefined(process.env.QWEN_TTS_MODEL),
     TEXT_PROVIDER: emptyToUndefined(process.env.TEXT_PROVIDER),
     OPENAI_COMPAT_BASE_URL: emptyToUndefined(
       process.env.OPENAI_COMPAT_BASE_URL,
@@ -130,20 +126,14 @@ export function getConfig(): AppConfig {
       : undefined;
 
   return {
-    dataDir: path.resolve(cwd, parsed.DATA_DIR),
-    projectsDir: path.resolve(cwd, parsed.PROJECTS_DIR),
+    dataDir: path.resolve(cwd, expandHome(parsed.DATA_DIR)),
+    projectsDir: path.resolve(cwd, expandHome(parsed.PROJECTS_DIR)),
     qwen: {
       apiKey: parsed.QWEN_API_KEY,
       keyType: resolveQwenKeyType(parsed.QWEN_KEY_TYPE, parsed.QWEN_API_KEY),
       region: parsed.QWEN_REGION,
       workspaceId: parsed.QWEN_WORKSPACE_ID,
       baseUrlOverride: parsed.QWEN_BASE_URL,
-      models: {
-        text: parsed.QWEN_TEXT_MODEL,
-        image: parsed.QWEN_IMAGE_MODEL,
-        video: parsed.QWEN_VIDEO_MODEL,
-        tts: parsed.QWEN_TTS_MODEL,
-      },
     },
     textProvider: parsed.TEXT_PROVIDER,
     openaiCompat,

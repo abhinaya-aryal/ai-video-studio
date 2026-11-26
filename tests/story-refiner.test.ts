@@ -79,6 +79,14 @@ describe("refineStoryAndScenes", () => {
     expect(result.scenes[0]?.audioMode).toBe("ambient_only");
     expect(result.scenes[1]?.videoMode).toBe("first_last_frame");
 
+    const systemMessage = chat.mock.calls[0]?.[0].find(
+      (m) => m.role === "system",
+    );
+    expect(systemMessage?.content).toContain("Shot framing and motion");
+    expect(systemMessage?.content).toContain("Text and audio");
+    expect(systemMessage?.content).toContain("Dolly zoom");
+    expect(systemMessage?.content).toContain("No text.");
+
     const userMessage = chat.mock.calls[0]?.[0].find((m) => m.role === "user");
     expect(userMessage?.content).toContain("Teal and amber neo-noir");
     expect(userMessage?.content).toContain("2");
@@ -301,6 +309,31 @@ describe("polishPrompt", () => {
     const userMsg = chat.mock.calls[0]?.[0].find((m) => m.role === "user");
     expect(userMsg?.content).toContain("Noir cyberpunk");
     expect(userMsg?.content).toContain("ambient_only");
+
+    const systemMsg = chat.mock.calls[0]?.[0].find((m) => m.role === "system");
+    expect(systemMsg?.content).toContain("Shot framing and motion");
+    expect(systemMsg?.content).toContain("Orbit");
+    expect(systemMsg?.content).toContain("No text.");
+  });
+
+  it("turns a silent audio mode into an explicit no-audio directive", async () => {
+    const chat = vi.fn<ChatCompletionFn>(async () =>
+      JSON.stringify({
+        visualPrompt: "Locked-off ECU of a cracked clay cup. No text.",
+        cameraDirection: "Locked off, extreme close-up",
+        audioScript: "Silent.",
+      }),
+    );
+
+    const polished = await polishPrompt({
+      text: "A cracked cup",
+      context: { audioMode: "silent" },
+      chat,
+    });
+
+    expect(polished.audioScript).toBe("Silent.");
+    const systemMsg = chat.mock.calls[0]?.[0].find((m) => m.role === "system");
+    expect(systemMsg?.content).toContain("Audio mode is silent");
   });
 
   it("retries once on invalid polish output and throws RefinerError on double failure", async () => {

@@ -1,6 +1,11 @@
 import { connection } from "next/server";
+import { getDb } from "@/db";
 import { getConfig, maskApiKey } from "@/lib/config";
 import { apiOk } from "@/lib/api/route-helpers";
+import {
+  getAutoPreset,
+  resolveAllSlots,
+} from "@/lib/providers/model-selection";
 import {
   checkQwenKeyUrl,
   resolveQwenBaseUrl,
@@ -19,6 +24,7 @@ export async function GET() {
     const keyUrlCheck = cfg.qwen.apiKey
       ? checkQwenKeyUrl(cfg.qwen.apiKey, qwenBaseUrl)
       : { ok: true as const };
+    const db = getDb();
 
     return apiOk({
       configured: Boolean(cfg.qwen.apiKey),
@@ -29,8 +35,11 @@ export async function GET() {
         region: cfg.qwen.region,
         workspaceId: cfg.qwen.workspaceId ?? null,
         baseUrl: qwenBaseUrl,
-        models: cfg.qwen.models,
         keyUrlCheck,
+      },
+      modelResolution: {
+        autoPreset: getAutoPreset(db),
+        resolved: resolveAllSlots(db),
       },
       textProvider: cfg.textProvider,
       openaiCompat: cfg.openaiCompat
@@ -51,6 +60,7 @@ export async function GET() {
       configError:
         err instanceof Error ? err.message : "Invalid environment configuration",
       qwen: null,
+      modelResolution: null,
       textProvider: null,
       openaiCompat: null,
       jobs: null,

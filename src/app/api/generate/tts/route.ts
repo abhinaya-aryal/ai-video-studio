@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getDb } from "@/db";
 import {
   RouteError,
   apiOk,
@@ -9,9 +10,9 @@ import {
   requireProject,
   requireScene,
 } from "@/lib/api/route-helpers";
-import { getConfig } from "@/lib/config";
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
+import { resolveSlotModel } from "@/lib/providers/model-selection";
 
 const GenerateTtsSchema = z.object({
   projectId: z.string().trim().min(1),
@@ -40,7 +41,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const modelId = input.modelId ?? getConfig().qwen.models.tts;
+    const modelId = resolveSlotModel(getDb(), "audio", {
+      explicitModelId: input.modelId,
+    }).modelId;
     const cap = getModelCapabilities(modelId, getCustomModelRows());
     if (cap.modality !== "audio") {
       throw new RouteError(

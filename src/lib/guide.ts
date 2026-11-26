@@ -81,8 +81,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
         text: "QWEN_REGION is ap-southeast-1 or cn-beijing and applies to token-plan routing. Standard DashScope keys can also use QWEN_WORKSPACE_ID. QWEN_BASE_URL overrides the resolved endpoint for advanced setups.",
       },
       {
-        label: "Model overrides",
-        text: "Defaults are QWEN_TEXT_MODEL=qwen-plus, QWEN_IMAGE_MODEL=wan2.7-image-pro, QWEN_VIDEO_MODEL=wan3.0-video, and QWEN_TTS_MODEL=qwen-audio-3.0-tts-plus. Override them in .env.local to try another model.",
+        label: "Models",
+        text: "Model choice lives in Settings → Models, where the synced token list and Auto presets live. No model environment variables remain.",
       },
       {
         label: "Text provider",
@@ -94,7 +94,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Storage paths",
-        text: "DATA_DIR defaults to data and holds studio.db. PROJECTS_DIR defaults to projects and holds one folder per project slug, including story.md, elements/, scenes/, and export_kdenlive/.",
+        text: "DATA_DIR defaults to data and holds studio.db. PROJECTS_DIR defaults to ~/projects and holds one folder per project slug, including story.md, elements/, scenes/, and export_kdenlive/.",
       },
       {
         label: "Secrets",
@@ -113,9 +113,9 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     summary:
       "Provider Status is a read-only view of the server configuration plus live connectivity checks, so you can confirm routing and model IDs before queueing work.",
     bullets: [
-      "Shows the masked key, resolved key type, region, endpoint, and four model IDs.",
+      "Shows the masked key, resolved key type, region, endpoint, and role resolution.",
       "Test Qwen, Test OpenAI-Compat, and Test All report success or a readable error.",
-      "Refresh re-reads the server status after an environment change or restart.",
+      "Usage for the last 7 days is listed below the provider cards.",
     ],
     details: [
       {
@@ -128,7 +128,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Models",
-        text: "Video and image model IDs are listed on one line, text and TTS on another. These come from the environment, not from the custom model registry.",
+        text: "Each role is listed with its mode, resolved model, and source. Model choice lives in Settings → Models, not in the environment.",
       },
       {
         label: "Text provider",
@@ -143,6 +143,48 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     where: "Settings → Provider Status",
     href: "/settings/providers",
     cta: "Open provider status",
+  },
+  {
+    id: "models",
+    group: "Start here",
+    title: "Sync models and choose a role",
+    summary:
+      "The app lists every model your token can use and stores the list in SQLite. Pick a model for each role, or turn on Auto. Nothing is preselected.",
+    bullets: [
+      "Sync models calls the provider metadata endpoint. It runs no model and spends no tokens.",
+      "Roles are text_refine, text_polish, image, video, and audio. Each is Manual or Auto.",
+      "Auto offers Quality, Balanced, and Economy presets. Every role can still be overridden.",
+    ],
+    details: [
+      {
+        label: "Sync models",
+        text: "The first load with an empty registry syncs automatically. Press Sync models any time to pick up a new release. Discovered rows show a Token badge; manual rows survive sync and keep their rules.",
+      },
+      {
+        label: "Roles",
+        text: "text_refine drives story refinement, text_polish drives prompt polish, image drives element sheets and keyframes, video drives clips and Quick Clip, and audio drives voiceover. A project can override the video role, and a request can override any role.",
+      },
+      {
+        label: "Auto presets",
+        text: "Quality prefers the highest tier, Balanced trades cost against quality, and Economy prefers cheap models. Relative tiers come from model ID signals because the provider returns no prices. The resolved model and its reason appear on each row.",
+      },
+      {
+        label: "No default",
+        text: "A fresh database has no selection. Until a role resolves, the matching action stays disabled and the API returns 409 MODEL_NOT_SELECTED. Manual selections that disappear from the token fail with MODEL_UNAVAILABLE instead of silently switching.",
+      },
+      {
+        label: "Capability rules",
+        text: "Discovered IDs inherit rules from their family. Rules opens a JSON editor for media slots, caps, durations, and resolutions. Saving marks the row as edited so a later sync leaves it alone.",
+      },
+      {
+        label: "Usage",
+        text: "Chat responses record input, output, and total tokens. Media jobs record one unit per image or clip when the provider sends no usage block. Totals appear here and on Provider Status for the last 7 days.",
+      },
+    ],
+    note: "Syncing models and reading usage never spend tokens. Only generation calls do.",
+    where: "Settings → Models",
+    href: "/settings/models",
+    cta: "Open models",
   },
   {
     id: "projects",
@@ -166,7 +208,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Style",
-        text: "Pick a Style Preset or Custom / None, and optionally prefill the Style Bible. Built-in presets are Cinematic, Anime, Documentary, and Product. A preset copies its Style Bible into the project at creation time.",
+        text: "Pick a Style Preset or Custom / None, and optionally prefill the Style Bible. Built-in presets are Cinematic, Anime, Documentary, Product, and Mythic 3D Animation. A preset copies its Style Bible into the project at creation time.",
       },
       {
         label: "Output settings",
@@ -236,7 +278,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       "The Style Bible is the visual contract for the whole project. It feeds refinement, prompt polishing, element sheets, keyframes, and video prompts, and it can be saved as a reusable preset.",
     bullets: [
       "Save as Preset stores the current Style Bible under a name for future projects.",
-      "Built-in presets are Cinematic, Anime, Documentary, and Product; custom presets can be deleted.",
+      "Built-in presets are Cinematic, Anime, Documentary, Product, and Mythic 3D Animation; custom presets can be deleted.",
       "Selecting a preset at project creation copies its text; later edits stay local to the project.",
     ],
     details: [
@@ -605,11 +647,11 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Polish Prompt",
-        text: "Sends the prompt to the configured text provider and replaces the textarea with the polished version. Requires a non-empty prompt.",
+        text: "Sends the prompt to the configured text provider and replaces the textarea with the polished version, plus Camera and Audio lines. Both this and project scene polish build the prompt from six dimensions: framing and motion, style, lighting, location, action, and text/audio. Requires a non-empty prompt.",
       },
       {
         label: "Model",
-        text: "Lists registered video models. The default comes from QWEN_VIDEO_MODEL or the fallback wan3.0-video. Changing the model updates the supported resolutions, duration range, and media slots.",
+        text: "Lists available video models from the synced registry. Nothing is preselected; choose a model or let Auto resolve the role. Changing the model updates the supported resolutions, duration range, and media slots.",
       },
       {
         label: "Output shape",
@@ -770,7 +812,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Defaults",
-        text: "New projects use 16:9, 720P, and wan3.0-video. New scenes use 5 seconds, ambient_only audio, and omni_reference video. Built-in presets are Cinematic, Anime, Documentary, and Product.",
+        text: "New projects use 16:9 and 720P with no video model preselected; choose one per project or rely on the global video role. New scenes use 5 seconds, ambient_only audio, and omni_reference video. Built-in presets are Cinematic, Anime, Documentary, Product, and Mythic 3D Animation.",
       },
     ],
     where: "Local disk and this guide",

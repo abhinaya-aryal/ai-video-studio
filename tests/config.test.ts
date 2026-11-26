@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ZodError } from "zod";
@@ -73,14 +74,10 @@ describe("config and maskApiKey", () => {
     const config = getConfig();
 
     expect(config.dataDir).toBe(path.resolve(process.cwd(), "data"));
-    expect(config.projectsDir).toBe(path.resolve(process.cwd(), "projects"));
+    expect(config.projectsDir).toBe(path.join(os.homedir(), "projects"));
     expect(config.jobs.maxConcurrent).toBe(2);
     expect(config.jobs.pollIntervalMs).toBe(10000);
     expect(config.qwen.region).toBe("ap-southeast-1");
-    expect(config.qwen.models.text).toBe("qwen-plus");
-    expect(config.qwen.models.image).toBe("wan2.7-image-pro");
-    expect(config.qwen.models.video).toBe("wan3.0-video");
-    expect(config.qwen.models.tts).toBe("qwen-audio-3.0-tts-plus");
     expect(config.textProvider).toBe("qwen");
   });
 
@@ -94,11 +91,19 @@ describe("config and maskApiKey", () => {
 
     const config = getConfig();
     expect(config.dataDir).toBe(path.resolve(process.cwd(), "data"));
-    expect(config.projectsDir).toBe(path.resolve(process.cwd(), "projects"));
+    expect(config.projectsDir).toBe(path.join(os.homedir(), "projects"));
     expect(config.qwen.apiKey).toBeUndefined();
     expect(config.qwen.region).toBe("ap-southeast-1");
-    expect(config.qwen.models.video).toBe("wan3.0-video");
     expect(config.jobs.maxConcurrent).toBe(2);
+  });
+
+  it("expands a leading tilde in path settings", () => {
+    process.env.DATA_DIR = "~/studio-data";
+    process.env.PROJECTS_DIR = "~/media/video";
+
+    const config = getConfig();
+    expect(config.dataDir).toBe(path.join(os.homedir(), "studio-data"));
+    expect(config.projectsDir).toBe(path.join(os.homedir(), "media", "video"));
   });
 
   it("reads openaiCompat configuration when TEXT_PROVIDER=openai_compat", () => {

@@ -17,9 +17,9 @@ import {
   requireScene,
 } from "@/lib/api/route-helpers";
 import { SceneUploadsSchema } from "@/lib/api/scene-uploads";
-import { getConfig } from "@/lib/config";
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
+import { resolveSlotModel } from "@/lib/providers/model-selection";
 import { MEDIA_TYPES } from "@/lib/providers/types";
 import { buildVideoSynthesisPayload } from "@/lib/providers/wan-payload";
 import { buildSceneVideoRequest } from "@/lib/studio/scene-request";
@@ -67,10 +67,10 @@ export async function POST(req: Request) {
     if ("sceneId" in input) {
       const project = requireProject(input.projectId);
       const scene = requireScene(input.projectId, input.sceneId);
-      const modelId =
-        input.modelId ??
-        project.defaultVideoModel ??
-        getConfig().qwen.models.video;
+      const modelId = resolveSlotModel(getDb(), "video", {
+        explicitModelId: input.modelId,
+        projectModelId: project.defaultVideoModel,
+      }).modelId;
       const cap = getModelCapabilities(modelId, customRows);
 
       const elements = getDb()
@@ -104,7 +104,10 @@ export async function POST(req: Request) {
       ? requireProject(input.projectId)
       : getOrCreateQuickClipProject();
     const role = input.projectId ? "video_clip" : "quick_clip";
-    const modelId = input.modelId ?? getConfig().qwen.models.video;
+    const modelId = resolveSlotModel(getDb(), "video", {
+      explicitModelId: input.modelId,
+      projectModelId: project.defaultVideoModel,
+    }).modelId;
     const cap = getModelCapabilities(modelId, customRows);
 
     const imageCount = input.media.filter((m) =>

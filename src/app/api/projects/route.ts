@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { QUICK_CLIPS_SLUG, getDb, projects } from "@/db";
@@ -8,6 +10,7 @@ import {
   parseJsonBody,
 } from "@/lib/api/route-helpers";
 import { getConfig } from "@/lib/config";
+import { assertModelForSlot } from "@/lib/providers/model-selection";
 import { ensureProjectDirs, slugify } from "@/lib/storage/paths";
 
 const CreateProjectSchema = z.object({
@@ -31,7 +34,11 @@ function resolveUniqueSlug(title: string): string {
     .where(eq(projects.slug, candidate))
     .get();
 
-  if (!existing) {
+  // `PROJECTS_DIR` may already hold folders from earlier work, so never
+  // create a project that would write into an unregistered directory.
+  const existingDir = existsSync(path.join(getConfig().projectsDir, candidate));
+
+  if (!existing && !existingDir) {
     return candidate;
   }
 
@@ -66,13 +73,9 @@ export async function POST(req: Request) {
     const now = Date.now();
     const slug = resolveUniqueSlug(input.title);
 
-    let defaultVideoModel = input.defaultVideoModel;
-    if (!defaultVideoModel) {
-      try {
-        defaultVideoModel = getConfig().qwen.models.video;
-      } catch {
-        defaultVideoModel = "wan3.0-video";
-      }
+    const defaultVideoModel = input.defaultVideoModel?.trim() || null;
+    if (defaultVideoModel) {
+      assertModelForSlot(db, "video", defaultVideoModel);
     }
 
     const project = {

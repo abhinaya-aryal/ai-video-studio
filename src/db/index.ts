@@ -45,6 +45,13 @@ const BUILTIN_STYLE_PRESETS = [
       "Clean commercial studio showcase, precision rim lighting, glossy macro highlights, controlled neutral backdrop, smooth motorized camera glides.",
     isBuiltin: 1,
   },
+  {
+    id: "preset-3d-mythic",
+    name: "Mythic 3D Animation",
+    styleBible:
+      "Feature-quality stylized 3D animation, grounded mythic ancient-world characters with appealing proportions and detailed costumes, physically based materials, soft subsurface skin, and hand-crafted props. Lush layered forest environments, warm volumetric sunlight and god rays, drifting pollen and atmospheric haze, cinematic depth of field, gentle rim light, earthy green and gold palette.",
+    isBuiltin: 1,
+  },
 ] as const;
 
 interface DbEntry {

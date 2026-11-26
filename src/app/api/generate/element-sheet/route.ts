@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getDb } from "@/db";
 import {
   RouteError,
   apiOk,
@@ -10,9 +11,9 @@ import {
   requireElement,
   requireProject,
 } from "@/lib/api/route-helpers";
-import { getConfig } from "@/lib/config";
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
+import { resolveSlotModel } from "@/lib/providers/model-selection";
 
 const ElementSheetSchema = z.object({
   projectId: z.string().trim().min(1),
@@ -29,7 +30,9 @@ export async function POST(req: Request) {
     const project = requireProject(input.projectId);
     const element = requireElement(input.projectId, input.elementId);
 
-    const modelId = input.modelId ?? getConfig().qwen.models.image;
+    const modelId = resolveSlotModel(getDb(), "image", {
+      explicitModelId: input.modelId,
+    }).modelId;
     const cap = getModelCapabilities(modelId, getCustomModelRows());
     if (cap.modality !== "image") {
       throw new RouteError(

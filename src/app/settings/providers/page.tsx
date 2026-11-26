@@ -24,13 +24,16 @@ interface SettingsStatusResponse {
     region: string;
     workspaceId: string | null;
     baseUrl: string;
-    models: {
-      video: string;
-      image: string;
-      tts: string;
-      text: string;
-    };
     keyUrlCheck: QwenKeyUrlCheck;
+  } | null;
+  modelResolution: {
+    autoPreset: string;
+    resolved: Array<{
+      slot: string;
+      modelId: string | null;
+      source: string;
+      reason: string;
+    }>;
   } | null;
   textProvider: string | null;
   openaiCompat: {
@@ -60,6 +63,11 @@ export default function ProviderStatusPage() {
     qwen?: ConnectionCheckResult;
     openaiCompat?: ConnectionCheckResult;
   }>({});
+  const [usage, setUsage] = useState<{
+    totals: { totalTokens: number };
+    byModality: Array<{ modality: string; totalTokens: number; events: number }>;
+    topModels: Array<{ modelId: string; totalTokens: number }>;
+  } | null>(null);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -84,6 +92,25 @@ export default function ProviderStatusPage() {
         if (active) toast.error("Failed to load provider status");
       } finally {
         if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/usage?range=7d", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active) setUsage(data);
+      } catch {
+        // Usage is optional; leave the card empty on failure.
       }
     })();
     return () => {
@@ -254,17 +281,16 @@ export default function ProviderStatusPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-subtle-foreground">Default Models</dt>
-                  <dd className="mt-0.5 font-mono text-foreground">
-                    video: {status.qwen.models.video} · image:{" "}
-                    {status.qwen.models.image}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-subtle-foreground">Text &amp; TTS</dt>
-                  <dd className="mt-0.5 font-mono text-foreground">
-                    text: {status.qwen.models.text} · tts:{" "}
-                    {status.qwen.models.tts}
+                  <dt className="text-subtle-foreground">Model roles</dt>
+                  <dd className="mt-0.5 space-y-1 font-mono text-foreground">
+                    {status.modelResolution?.resolved?.length
+                      ? status.modelResolution.resolved.map((entry) => (
+                          <div key={entry.slot}>
+                            {entry.slot}: {entry.modelId ?? "not selected"} (
+                            {entry.source})
+                          </div>
+                        ))
+                      : "No models selected"}
                   </dd>
                 </div>
               </dl>
@@ -356,6 +382,41 @@ export default function ProviderStatusPage() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="space-y-2.5 rounded-xl border border-border bg-surface-2/30 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-medium text-foreground">
+              Usage, last 7 days
+            </span>
+            <Badge variant="outline" className="font-mono tabular-nums">
+              {(usage?.totals.totalTokens ?? 0).toLocaleString()} tokens
+            </Badge>
+          </div>
+          {usage && usage.byModality.length > 0 ? (
+            <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+              {usage.byModality.map((row) => (
+                <div
+                  key={row.modality}
+                  className="rounded-lg border border-border bg-background/40 px-3 py-2"
+                >
+                  <div className="text-[11px] uppercase tracking-wide text-subtle-foreground">
+                    {row.modality}
+                  </div>
+                  <div className="mt-0.5 font-mono tabular-nums text-foreground">
+                    {row.totalTokens.toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {row.events} events
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No usage recorded yet. Syncing models does not spend tokens.
+            </p>
+          )}
         </div>
       </section>
     </div>

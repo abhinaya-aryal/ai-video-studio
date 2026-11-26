@@ -150,6 +150,7 @@ const BUILTIN_CAPABILITIES: Record<string, ModelCapability> = {
     durations: { min: 0, max: 0, smart: false },
     resolutions: [],
     nativeAudio: false,
+    ttsCapable: true,
   },
 
   // Source: https://www.alibabacloud.com/help/en/model-studio/ (Qwen Plus text model)
@@ -178,6 +179,7 @@ const CustomCapabilitiesPatchSchema = z
       .optional(),
     resolutions: z.array(z.string().min(1)).optional(),
     nativeAudio: z.boolean().optional(),
+    ttsCapable: z.boolean().optional(),
   })
   .passthrough();
 
@@ -200,7 +202,7 @@ function resolveCustomFamily(
   }
 }
 
-function defaultTemplateFor(
+export function defaultTemplateFor(
   modality: ModelModality,
   family: ModelFamily,
 ): CapabilityTemplate {
@@ -271,6 +273,7 @@ function customRowToCapability(row: CustomModelRow): ModelCapability {
     durations: patch.durations ?? base.durations,
     resolutions: patch.resolutions ?? base.resolutions,
     nativeAudio: patch.nativeAudio ?? base.nativeAudio,
+    ttsCapable: patch.ttsCapable ?? base.ttsCapable,
   };
 }
 

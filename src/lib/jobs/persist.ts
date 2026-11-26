@@ -18,6 +18,7 @@ import {
   resolveInsideProjects,
   slugify,
 } from "@/lib/storage/paths";
+import { recordUsage } from "@/lib/usage/record";
 
 export type ResultSource =
   | { url: string }
@@ -310,6 +311,14 @@ export async function persistResult(
       })
       .where(eq(jobs.id, job.id))
       .run();
+
+    recordUsage(db, {
+      jobId: job.id,
+      projectId: job.projectId,
+      modality: job.modality,
+      modelId: job.modelId,
+      units: 1,
+    });
 
     return newAsset;
   });

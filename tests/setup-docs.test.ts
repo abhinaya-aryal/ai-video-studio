@@ -127,7 +127,10 @@ describe("day-1 documentation and repository setup", () => {
       expect(readme).toContain(url);
     }
 
-    expect(readme).toContain("Settings → Custom Models");
+    expect(readme).toContain("Settings → Models");
+    expect(readme).toContain("Sync models");
+    expect(readme).toContain("Auto presets");
     expect(readme).toContain("src/lib/providers/catalog.ts");
+    expect(readme).not.toContain("QWEN_VIDEO_MODEL");
   });
 });

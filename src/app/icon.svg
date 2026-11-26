@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="AI Video Studio">
+  <defs>
+    <radialGradient id="bg" cx="34%" cy="22%" r="96%">
+      <stop offset="0" stop-color="#2e1b4a"/>
+      <stop offset="0.56" stop-color="#150d24"/>
+      <stop offset="1" stop-color="#090610"/>
+    </radialGradient>
+    <linearGradient id="prism" x1="176" y1="150" x2="382" y2="370" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5ee7ff"/>
+      <stop offset="0.46" stop-color="#ff8fd8"/>
+      <stop offset="1" stop-color="#c79bff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ff8fd8" stop-opacity="0.4"/>
+      <stop offset="0.6" stop-color="#c79bff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#c79bff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="18" y="18" width="476" height="476" rx="112" fill="url(#bg)"/>
+  <rect x="18" y="18" width="476" height="476" rx="112" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="2"/>
+  <circle cx="300" cy="248" r="168" fill="url(#glow)"/>
+  <path d="M211 166 L369 256 L211 346 Z" fill="url(#prism)" stroke="url(#prism)" stroke-width="28" stroke-linejoin="round"/>
+</svg>

@@ -11,9 +11,9 @@ import {
   requireProject,
 } from "@/lib/api/route-helpers";
 import { SceneUploadsSchema } from "@/lib/api/scene-uploads";
-import { getConfig } from "@/lib/config";
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
+import { resolveSlotModel } from "@/lib/providers/model-selection";
 import {
   buildSceneKeyframeRequest,
   buildSceneVideoRequest,
@@ -46,12 +46,13 @@ export async function POST(req: Request) {
       .orderBy(asc(scenes.orderIndex))
       .all();
 
-    const cfg = getConfig();
     const model =
-      input.modelId ??
-      (input.kind === "keyframes"
-        ? cfg.qwen.models.image
-        : project.defaultVideoModel || cfg.qwen.models.video);
+      input.kind === "keyframes"
+        ? resolveSlotModel(db, "image", { explicitModelId: input.modelId }).modelId
+        : resolveSlotModel(db, "video", {
+            explicitModelId: input.modelId,
+            projectModelId: project.defaultVideoModel,
+          }).modelId;
     const resolution =
       input.kind === "keyframes"
         ? aspectRatioToImageSize(project.aspectRatio)

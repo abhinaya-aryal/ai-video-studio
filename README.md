@@ -18,7 +18,7 @@ cp .env.example .env.local
 bun run dev
 ```
 
-Open `http://localhost:3000`. Configuration is read lazily on the server, so restart the dev server after editing `.env.local`.
+Open `http://localhost:3000`. Configuration is read lazily on the server, so restart the dev server after editing `.env.local`. Project media is written to `~/projects/<slug>/` by default; set `PROJECTS_DIR` to change it. Before generating, open **Settings → Models**, press **Sync models**, then choose a model per role or turn on Auto.
 
 ## Commands
 
@@ -41,7 +41,9 @@ Open `http://localhost:3000`. Configuration is read lazily on the server, so res
 | Variable | Required | Default | Accepted values | Purpose |
 | --- | --- | --- | --- | --- |
 | `DATA_DIR` | No | `./data` | Any writable path, absolute or relative to the repo root | Directory for `studio.db` (SQLite metadata). Changing it after first run points the app at a new, empty database unless you move the old file. |
-| `PROJECTS_DIR` | No | `./projects` | Any writable path, absolute or relative to the repo root | Root for project media. Each project gets `<slug>/` containing `story.md`, `elements/`, `scenes/`, and `export_kdenlive/`. Changing it hides existing media from the app until you move the folders. |
+| `PROJECTS_DIR` | No | `~/projects` | Any writable path. `~` expands to your home directory; relative paths resolve from the repo root | Root for project media. Each project gets `<slug>/` containing `story.md`, `elements/`, `scenes/`, and `export_kdenlive/`. Changing it hides existing media from the app until you move the folders. |
+
+`PROJECTS_DIR` points outside the repository by default, so generated footage stays out of git. Set it to an absolute path if you want a different drive, for example `PROJECTS_DIR=/mnt/media/ai-video`. Creating a project whose slug already exists on disk adds a short suffix instead of writing into that folder.
 
 ### Provider key and routing
 
@@ -55,20 +57,13 @@ Open `http://localhost:3000`. Configuration is read lazily on the server, so res
 
 ### Model selection
 
-| Variable | Required | Default | Accepted values | Purpose |
-| --- | --- | --- | --- | --- |
-| `QWEN_TEXT_MODEL` | No | `qwen-plus` | Any text model ID known to the app | Story refinement and prompt polishing when `TEXT_PROVIDER=qwen`. |
-| `QWEN_IMAGE_MODEL` | No | `wan2.7-image-pro` | Any image model ID known to the app | Element reference sheets and scene keyframes. |
-| `QWEN_VIDEO_MODEL` | No | `wan3.0-video` | Any video model ID known to the app | Default model for new projects and for Quick Clip. Each project can override it later. |
-| `QWEN_TTS_MODEL` | No | `qwen-audio-3.0-tts-plus` | Any audio or TTS model ID known to the app | Standalone voiceover generation in Stage 2. |
-
-A model ID must exist in the built-in catalog (`src/lib/providers/catalog.ts`) or be registered as a custom model. Otherwise the job fails with `UnknownModelError`. See [Model catalog and adding newer models](#model-catalog-and-adding-newer-models).
+Models are not configured through environment variables. The app reads the model list that your API key can access, stores it in SQLite, and you choose a model per role in **Settings → Models**. See [Models](#models).
 
 ### Text provider
 
 | Variable | Required | Default | Accepted values | Purpose |
 | --- | --- | --- | --- | --- |
-| `TEXT_PROVIDER` | No | `qwen` | `qwen`, `openai_compat` | Provider used for refinement and polish. `qwen` uses `QWEN_TEXT_MODEL` through the DashScope compatible endpoint. `openai_compat` uses the three variables below. |
+| `TEXT_PROVIDER` | No | `qwen` | `qwen`, `openai_compat` | Provider used for refinement and polish. `qwen` uses the model selected for the text roles. `openai_compat` uses the three variables below. |
 | `OPENAI_COMPAT_BASE_URL` | When `TEXT_PROVIDER=openai_compat` | empty | Full `https://` or `http://` URL | Base URL of an OpenAI-compatible endpoint, for example `http://localhost:11434/v1`. |
 | `OPENAI_COMPAT_MODEL` | When `TEXT_PROVIDER=openai_compat` | empty | Model ID accepted by that endpoint | Text model name used for refinement and polish. |
 | `OPENAI_COMPAT_API_KEY` | No | empty | Any bearer token string | Optional credential for that endpoint. Media generation still uses `QWEN_API_KEY`. |
@@ -99,7 +94,6 @@ Token Plan in Singapore:
 QWEN_API_KEY=sk-sp-your-key
 QWEN_KEY_TYPE=auto
 QWEN_REGION=ap-southeast-1
-QWEN_VIDEO_MODEL=wan3.0-video
 ```
 
 Standard DashScope key in Beijing with a workspace:
@@ -120,11 +114,13 @@ OPENAI_COMPAT_BASE_URL=http://localhost:11434/v1
 OPENAI_COMPAT_MODEL=qwen3.5:8b
 ```
 
-## Model catalog and adding newer models
+## Model catalog, sync, and adding newer models
 
-The app resolves a model in two steps. It checks custom models in SQLite first, then the built-in catalog. Each entry supplies a capability profile: allowed media types, per-slot caps, duration range, resolutions, and native-audio support. The studio uses that profile to enable or disable media slots and validate requests.
+The token decides which models the app can use. **Sync models** imports every ID the provider lists. Capability rules still come from family templates in `src/lib/providers/catalog.ts`, because the metadata endpoint returns IDs only. Each profile supplies allowed media types, per-slot caps, duration range, resolutions, and native-audio support. The studio uses that profile to enable media slots and validate requests.
 
-### Built-in IDs
+### Built-in capability templates
+
+These IDs ship with hand-checked rules. Sync adds them when the token offers them, and manual entries can reuse the same families.
 
 | Modality | Built-in model IDs | Notes |
 | --- | --- | --- |
@@ -163,15 +159,14 @@ Copy the exact API model ID, not the display name. IDs are case-sensitive and of
 
 ### Steps to adopt a newer model
 
-1. Find the exact ID in the sources above.
-2. Check the request shape on the model page and API reference. Confirm the media slots, caps, duration range, resolutions, and whether audio is native.
-3. Open **Settings → Custom Models** and add the ID, a display name, the modality, and the closest family. The app writes the model to SQLite and lists it in model pickers immediately; no restart is needed.
-4. If the model needs different limits from its family template, edit the template in `src/lib/providers/catalog.ts`. The Custom Models form does not expose per-model capability overrides, so a new API shape or a different cap requires a code change.
-5. If the provider changed parameter names, media types, or the response format, update `src/lib/providers/types.ts`, `src/lib/providers/qwen-client.ts`, and `src/lib/providers/wan-payload.ts` as needed.
-6. Point `QWEN_VIDEO_MODEL`, `QWEN_IMAGE_MODEL`, `QWEN_TTS_MODEL`, or `QWEN_TEXT_MODEL` at the new ID, or choose it as a project default. Environment changes require a restart.
-7. Verify on **Settings → Provider Status** with **Test Qwen**, then run one small job and watch it reach `READY`.
+1. Open **Settings → Models** and press **Sync models**. If the token can use the ID, it appears with inferred rules.
+2. If Sync does not return it, find the exact ID in the sources above and add it manually with a modality and family. Manual rows appear in pickers immediately; no restart is needed.
+3. Check the request shape on the model page. If it differs from its family, open **Rules** on the model row and edit the capability JSON. Saving marks the row as edited, so later syncs leave your rules alone.
+4. If the provider changed parameter names, media types, or the response format, update `src/lib/providers/types.ts`, `src/lib/providers/qwen-client.ts`, and `src/lib/providers/wan-payload.ts` as needed.
+5. Choose the model for the role in **Settings → Models**, or set it as a project override. Changes apply to new jobs only.
+6. Verify on **Settings → Provider Status** with **Test Qwen**, then run one small job and watch it reach `READY`.
 
-Docs may list IDs the app has not modeled yet. For example, the catalog currently ships `qwen-image-3.0`, while the public model list also shows `qwen-image-3.0-pro`, and the current TTS family includes newer `qwen-audio-3.1-*` IDs. Register those through Custom Models only after confirming they accept the request shape used by the matching family.
+Docs may list IDs the app has not modeled yet. For example, the catalog ships `qwen-image-3.0`, while the current token also offers `qwen-image-3.0-pro`. Sync imports the pro ID with the `qwen-image` family rules; widen the rules in the editor only after confirming the model accepts them.
 
 ## Recommended workflow
 
@@ -186,16 +181,67 @@ Quick Clip skips the project and generates one shot with the same models and med
 
 The in-site guide covers every field, mode, status, limit, and export artifact. It opens with `?` or the sidebar button.
 
+## Models
+
+Open **Settings → Models** to choose models. Nothing is preselected. Until each role resolves, the matching action stays blocked and the API returns `409 MODEL_NOT_SELECTED`.
+
+### Sync
+
+**Sync models** calls `GET /compatible-mode/v1/models` with your key and stores every ID the token can use. This is a metadata call: it invokes no model and spends no tokens. The app also syncs once when the registry is empty. The list shows a relative cost tier and whether each row came from the token or from a manual entry.
+
+A model the token does not list can still be added manually with its modality and family. Manual rows survive sync and keep their rules.
+
+### Roles
+
+| Role | Used by |
+| --- | --- |
+| `text_refine` | Story refinement and the connection test |
+| `text_polish` | Prompt polish |
+| `image` | Element reference sheets and scene keyframes |
+| `video` | Scene clips and Quick Clip |
+| `audio` | Voiceover |
+
+Each role is **Manual** (one model) or **Auto**. A project can override the video role, and a request can override any role.
+
+### Auto presets
+
+| Preset | Text refine | Text polish | Image | Video | Audio |
+| --- | --- | --- | --- | --- | --- |
+| Quality | Highest tier | Highest tier | High tier | High tier | Best TTS |
+| Balanced | Mid tier, newest | Cheapest usable | Mid tier | Any capable, mid first | Best TTS |
+| Economy | Cheap tier | Cheapest usable | Cheap tier | Cheapest capable | Best TTS |
+
+Cost tiers come from model ID signals (`prime`, `max`, `pro` are high; `flash`, `turbo`, `air` are low) because the provider returns no prices. The resolved model and its reason appear in the UI. Auto picks up a newer model that matches the tier on the next sync.
+
+### Usage
+
+Chat responses carry token counts. Media jobs record one unit per image or clip when the provider sends no usage block. **Settings → Models** and **Settings → Provider Status** show totals for the last 7 days; `GET /api/settings/usage?range=today|7d|30d&projectId=...` backs both. Usage is observation only: no hard caps and no change to retry behavior.
+
+## Prompt refinement
+
+Auto-Refine and the **Polish Prompt** buttons share one prompt framework. Every scene prompt is built from six dimensions, in order:
+
+1. Shot framing and motion
+2. Style, with a concrete reference world instead of "cinematic"
+3. Lighting source and quality
+4. Location, in one concise phrase
+5. Action, with a specific subject and event
+6. Text and audio, including an explicit `No text.` or audio direction
+
+The refiner also uses technical camera terms (`dolly zoom`, `rack focus`, `low-angle orbit`, `OTS`, `locked off`) and keeps 4 to 6 core elements so details do not compete. Audio follows the selected mode: `silent` becomes `Silent.`, `ambient_only` names the acoustic environment and a foreground sound, and `narration` or `dialogue` writes the spoken line.
+
+Polish returns three fields. Quick Clip appends Camera and Audio lines to the prompt textarea. Project scene cards write the visual prompt, camera direction, and audio script into their matching fields.
+
 ## Studio and data layout
 
 | Path | Contents |
 | --- | --- |
 | `data/studio.db` | Projects, elements, scenes, asset records, jobs, custom models, and style presets. |
-| `projects/<slug>/story.md` | The written treatment for the export. |
-| `projects/<slug>/elements/` | Reference sheets and uploaded element images. |
-| `projects/<slug>/scenes/` | Keyframes, clips, and voiceover files. |
-| `projects/<slug>/export_kdenlive/` | The latest Kdenlive export, including `project.kdenlive` and `story.md`. |
-| `projects/_quick-clips/` | Hidden project that stores Quick Clip jobs and media. |
+| `~/projects/<slug>/story.md` | The written treatment for the export. |
+| `~/projects/<slug>/elements/` | Reference sheets and uploaded element images. |
+| `~/projects/<slug>/scenes/` | Keyframes, clips, and voiceover files. |
+| `~/projects/<slug>/export_kdenlive/` | The latest Kdenlive export, including `project.kdenlive` and `story.md`. |
+| `~/projects/_quick-clips/` | Hidden project that stores Quick Clip jobs and media. |
 
 Back up `DATA_DIR` and `PROJECTS_DIR` together while the server is stopped. Restoring only the database breaks media paths. Jobs resume automatically when the server starts.
 
@@ -216,7 +262,10 @@ Back up `DATA_DIR` and `PROJECTS_DIR` together while the server is stopped. Rest
 | Provider key is not configured | `QWEN_API_KEY` is empty | Add the key to `.env.local` and restart. |
 | `401 InvalidApiKey` | Key type and endpoint do not match | Fix `QWEN_KEY_TYPE`, `QWEN_REGION`, `QWEN_WORKSPACE_ID`, or `QWEN_BASE_URL`. Provider Status shows the mismatch warning. |
 | `429` or repeated throttling | Too many concurrent jobs | Lower `MAX_CONCURRENT_JOBS`, raise `JOB_POLL_INTERVAL_MS`, and wait before retrying. |
-| `UnknownModelError` | The model ID is neither built in nor registered | Add it in Settings → Custom Models or pick a built-in ID. |
+| `UnknownModelError` | The model ID is neither built in nor registered | Sync models, or add it manually in Settings → Models. |
+| `409 MODEL_NOT_SELECTED` | No model is chosen for that role | Open Settings → Models, pick a model or turn on Auto for the role. |
+| `409 MODEL_UNAVAILABLE` | The chosen model is no longer offered to the token | Sync, then pick an available model. |
+| Sync returns zero models | The token has no model access, or the key/region pair is wrong | Check Provider Status and the key type. |
 | Job stays `RUNNING` for a long time | Provider is still generating | Wait. Video jobs can take several minutes. Do not resubmit. |
 | Output has no audio | The selected model does not support native audio | Pick a native-audio video model, or keep `silent` audio mode. |
 | Export lists missing scenes | Those scenes have no active take | Generate a clip and click **Set Active**, then rebuild. |

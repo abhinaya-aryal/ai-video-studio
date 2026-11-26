@@ -8,12 +8,12 @@ import {
   BookOpen,
   Boxes,
   Clapperboard,
-  Film,
   FolderKanban,
   HelpCircle,
   Palette,
   Settings,
 } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { GuideDialog } from "@/components/GuideDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ const WORKSPACE_ITEMS = [
 
 const SETTINGS_ITEMS = [
   { href: "/settings/providers", label: "Provider Status", icon: Activity },
-  { href: "/settings/models", label: "Custom Models", icon: Boxes },
+  { href: "/settings/models", label: "Models", icon: Boxes },
   { href: "/settings/presets", label: "Style Presets", icon: Palette },
 ] as const;
 
@@ -113,8 +113,8 @@ export function NavSidebar() {
       {/* Desktop sidebar */}
       <aside className="hidden md:sticky md:top-0 md:flex md:h-screen md:w-[272px] md:shrink-0 md:flex-col md:overflow-y-auto border-r border-border bg-sidebar/90 bg-[radial-gradient(120%_45%_at_0%_0%,var(--glow-1),transparent_70%)] backdrop-blur">
         <div className="flex items-center gap-3 border-b border-border px-5 py-5">
-          <div className="flow-icon flex size-9 shrink-0 items-center justify-center rounded-lg">
-            <Film className="size-4" />
+          <div className="size-9 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_26px_-12px_var(--primary)]">
+            <BrandMark className="size-full" />
           </div>
           <div className="min-w-0 flex flex-col">
             <span className="truncate text-sm font-semibold tracking-tight text-foreground">
@@ -174,7 +174,7 @@ export function NavSidebar() {
       {/* Mobile top navigation */}
       <header className="flex items-center justify-between border-b border-border bg-card/50 px-4 py-2.5 md:hidden">
         <Link href="/" className="flex items-center gap-2 font-semibold text-sm">
-          <Film className="size-4 text-primary" />
+          <BrandMark className="size-6 rounded-md" />
           <span>AI Video Studio</span>
         </Link>
         <nav className="flex items-center gap-1" aria-label="Mobile">

@@ -11,9 +11,9 @@ import {
   requireProject,
   requireScene,
 } from "@/lib/api/route-helpers";
-import { getConfig } from "@/lib/config";
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
+import { resolveSlotModel } from "@/lib/providers/model-selection";
 import { buildSceneKeyframeRequest } from "@/lib/studio/scene-request";
 
 const GenerateKeyframeSchema = z.object({
@@ -32,7 +32,9 @@ export async function POST(req: Request) {
     const project = requireProject(input.projectId);
     const scene = requireScene(input.projectId, input.sceneId);
 
-    const modelId = input.modelId ?? getConfig().qwen.models.image;
+    const modelId = resolveSlotModel(getDb(), "image", {
+      explicitModelId: input.modelId,
+    }).modelId;
     const cap = getModelCapabilities(modelId, getCustomModelRows());
     if (cap.modality !== "image") {
       throw new RouteError(

@@ -57,6 +57,24 @@ export const CUSTOM_MODEL_MODALITIES = [
 ] as const;
 export type CustomModelModality = (typeof CUSTOM_MODEL_MODALITIES)[number];
 
+export const MODEL_SOURCES = ["manual", "discovered"] as const;
+export type ModelSource = (typeof MODEL_SOURCES)[number];
+
+export const MODEL_SLOTS = [
+  "text_refine",
+  "text_polish",
+  "image",
+  "video",
+  "audio",
+] as const;
+export type ModelSlot = (typeof MODEL_SLOTS)[number];
+
+export const AUTO_PRESETS = ["quality", "balanced", "economy"] as const;
+export type AutoPreset = (typeof AUTO_PRESETS)[number];
+
+export const USAGE_MODALITIES = ["text", "image", "video", "audio"] as const;
+export type UsageModality = (typeof USAGE_MODALITIES)[number];
+
 export const stylePresets = sqliteTable("style_presets", {
   id: text("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -76,9 +94,7 @@ export const projects = sqliteTable("projects", {
   }),
   aspectRatio: text("aspect_ratio").notNull().default("16:9"),
   resolution: text("resolution").notNull().default("720P"),
-  defaultVideoModel: text("default_video_model")
-    .notNull()
-    .default("wan3.0-video"),
+  defaultVideoModel: text("default_video_model"),
   isHidden: integer("is_hidden").notNull().default(0),
   createdAt: integer("created_at")
     .notNull()
@@ -226,7 +242,48 @@ export const customModels = sqliteTable("custom_models", {
   modality: text("modality", { enum: CUSTOM_MODEL_MODALITIES }).notNull(),
   family: text("family").notNull(),
   capabilitiesJson: text("capabilities_json").notNull().default("{}"),
+  source: text("source", { enum: MODEL_SOURCES }).notNull().default("manual"),
+  providerCreatedAt: integer("provider_created_at"),
+  lastSeenAt: integer("last_seen_at"),
+  available: integer("available").notNull().default(1),
+  ignored: integer("ignored").notNull().default(0),
+  capabilitiesEdited: integer("capabilities_edited").notNull().default(0),
 });
+
+export const modelSelections = sqliteTable("model_selections", {
+  slot: text("slot", { enum: MODEL_SLOTS }).primaryKey(),
+  mode: text("mode", { enum: ["auto", "manual"] }).notNull(),
+  modelId: text("model_id"),
+  updatedAt: integer("updated_at").notNull().$defaultFn(() => Date.now()),
+});
+
+export const modelPreferences = sqliteTable("model_preferences", {
+  id: integer("id").primaryKey(),
+  autoPreset: text("auto_preset", { enum: AUTO_PRESETS })
+    .notNull()
+    .default("balanced"),
+  updatedAt: integer("updated_at").notNull().$defaultFn(() => Date.now()),
+});
+
+export const usageEvents = sqliteTable(
+  "usage_events",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id"),
+    projectId: text("project_id"),
+    modality: text("modality", { enum: USAGE_MODALITIES }).notNull(),
+    modelId: text("model_id").notNull(),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    totalTokens: integer("total_tokens"),
+    units: integer("units"),
+    createdAt: integer("created_at").notNull().$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index("idx_usage_events_created_at").on(table.createdAt),
+    index("idx_usage_events_project_id").on(table.projectId),
+  ],
+);
 
 export type StylePreset = typeof stylePresets.$inferSelect;
 export type NewStylePreset = typeof stylePresets.$inferInsert;
@@ -248,3 +305,10 @@ export type NewJob = typeof jobs.$inferInsert;
 
 export type CustomModel = typeof customModels.$inferSelect;
 export type NewCustomModel = typeof customModels.$inferInsert;
+
+export type ModelSelection = typeof modelSelections.$inferSelect;
+export type NewModelSelection = typeof modelSelections.$inferInsert;
+
+export type ModelPreference = typeof modelPreferences.$inferSelect;
+export type UsageEvent = typeof usageEvents.$inferSelect;
+export type NewUsageEvent = typeof usageEvents.$inferInsert;

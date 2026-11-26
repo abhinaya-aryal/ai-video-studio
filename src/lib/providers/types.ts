@@ -49,6 +49,8 @@ export interface ModelCapability {
   };
   resolutions: string[];
   nativeAudio: boolean;
+  /** False for audio models that cannot synthesize speech (ASR, realtime). */
+  ttsCapable?: boolean;
 }
 
 /** Minimal reference element descriptor used for priority-ordered capping. */

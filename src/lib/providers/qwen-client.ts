@@ -371,6 +371,9 @@ export async function synthesizeSpeech({
 
 export type QwenConnectionConfig = AppConfig | AppConfig["qwen"];
 
+/** Model used only for the `/models` 404 fallback ping. Generation never uses it. */
+const CONNECTIVITY_PROBE_MODEL = "qwen-plus";
+
 /**
  * Verify QwenCloud key/endpoint pairing and connectivity via `/compatible-mode/v1/models`
  * (falling back to a `max_tokens: 1` chat ping on 404).
@@ -396,7 +399,7 @@ export async function testQwenConnection(
   return testOpenAIConnection({
     baseUrl: `${baseUrl}/compatible-mode/v1`,
     apiKey: qwen.apiKey,
-    model: qwen.models.text,
+    model: CONNECTIVITY_PROBE_MODEL,
     fetchFn,
   });
 }

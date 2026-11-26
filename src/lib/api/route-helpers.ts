@@ -13,6 +13,8 @@ import {
   type Scene,
 } from "@/db";
 import { getRunner } from "@/lib/jobs/runner";
+import { ModelSelectionError } from "@/lib/providers/model-selection";
+import { ModelSyncError } from "@/lib/providers/model-sync";
 import {
   ProviderHttpError,
   sanitizeErrorText,
@@ -76,6 +78,12 @@ export async function parseJsonBody<T>(
 /** Map domain and provider errors into standard `{ error: { code, message } }` JSON responses. */
 export function handleRouteError(err: unknown): NextResponse {
   if (err instanceof RouteError) {
+    return apiError(err.code, err.message, err.status);
+  }
+  if (err instanceof ModelSelectionError) {
+    return apiError(err.code, err.message, err.status);
+  }
+  if (err instanceof ModelSyncError) {
     return apiError(err.code, err.message, err.status);
   }
   if (err instanceof WanValidationError) {
