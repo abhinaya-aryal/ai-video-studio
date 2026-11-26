@@ -211,7 +211,9 @@ export function NavSidebar() {
         </nav>
       </header>
 
-      <GuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
+      {guideOpen && (
+        <GuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
+      )}
     </>
   );
 }

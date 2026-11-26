@@ -70,8 +70,10 @@ export function ShotStrip({
                 ) : keyframeAsset ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`/api/files/${keyframeAsset.filePath}`}
+                    src={`/api/files/${keyframeAsset.filePath}?v=${keyframeAsset.createdAt}`}
                     alt={scene.title}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 ) : (

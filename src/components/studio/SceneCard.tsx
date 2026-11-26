@@ -76,8 +76,15 @@ export function SceneCard({
   const [cameraDirection, setCameraDirection] = useState(scene.cameraDirection);
   const [audioMode, setAudioMode] = useState<AudioMode>(scene.audioMode);
   const [audioScript, setAudioScript] = useState(scene.audioScript);
-  const [duration, setDuration] = useState<number>(scene.duration);
+  const [durationText, setDurationText] = useState<string>(
+    String(scene.duration),
+  );
   const [videoMode, setVideoMode] = useState<VideoMode>(scene.videoMode);
+  const parsedDuration = useMemo(() => {
+    const num = Number.parseInt(durationText, 10);
+    if (!Number.isFinite(num)) return scene.duration;
+    return Math.min(30, Math.max(2, num));
+  }, [durationText, scene.duration]);
   const [linkedIds, setLinkedIds] = useState<string[]>(() =>
     parseLinkedIds(scene.linkedElementIdsJson),
   );
@@ -111,7 +118,7 @@ export function SceneCard({
       cameraDirection !== scene.cameraDirection ||
       audioMode !== scene.audioMode ||
       audioScript !== scene.audioScript ||
-      duration !== scene.duration ||
+      parsedDuration !== scene.duration ||
       videoMode !== scene.videoMode ||
       JSON.stringify(linkedIds) !== JSON.stringify(initialLinked)
     );
@@ -122,7 +129,7 @@ export function SceneCard({
     cameraDirection,
     audioMode,
     audioScript,
-    duration,
+    parsedDuration,
     videoMode,
     linkedIds,
   ]);
@@ -144,7 +151,7 @@ export function SceneCard({
           cameraDirection,
           audioMode,
           audioScript,
-          duration: Math.min(30, Math.max(2, Number(duration) || 5)),
+          duration: parsedDuration,
           videoMode,
           linkedElementIds: linkedIds,
         }),
@@ -311,7 +318,7 @@ export function SceneCard({
 
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               <Badge variant="outline" className="font-mono text-[11px] tabular-nums">
-                {duration}s
+                {parsedDuration}s
               </Badge>
               <Badge variant="secondary" className="text-[11px]">
                 {VIDEO_MODE_LABELS[videoMode] ?? videoMode}
@@ -398,8 +405,9 @@ export function SceneCard({
                 type="number"
                 min={2}
                 max={30}
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value) || 5)}
+                value={durationText}
+                onChange={(e) => setDurationText(e.target.value)}
+                onBlur={() => setDurationText(String(parsedDuration))}
               />
             </div>
           </div>

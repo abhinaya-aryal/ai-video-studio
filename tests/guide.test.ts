@@ -125,7 +125,7 @@ describe("in-site guide", () => {
       "Anime",
       "Documentary",
       "Product",
-      "Mythic 3D Animation",
+      "Epic Hindu Mythology 3D",
       "export_kdenlive",
       "project.kdenlive",
       "story.md",

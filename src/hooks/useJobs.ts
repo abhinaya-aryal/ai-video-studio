@@ -5,6 +5,15 @@ import type { Job, JobStatus } from "@/db/schema";
 
 const TERMINAL_STATUSES = new Set<JobStatus>(["READY", "FAILED"]);
 
+function jobsFingerprint(list: Job[]): string {
+  return list
+    .map(
+      (j) =>
+        `${j.id}:${j.status}:${j.updatedAt}:${j.resultAssetId ?? ""}:${j.errorMessage ?? ""}`,
+    )
+    .join("|");
+}
+
 export interface UseJobsFilter {
   projectId?: string;
   status?: JobStatus[];
@@ -22,7 +31,8 @@ export interface UseJobsResult {
 
 /**
  * Poll `/api/jobs` every 3 seconds while any listed job is in a non-terminal
- * state (`QUEUED`, `PENDING`, `RUNNING`, `DOWNLOADING`).
+ * state (`QUEUED`, `PENDING`, `RUNNING`, `DOWNLOADING`). Pauses when the tab
+ * is hidden and avoids re-rendering when job states have not changed.
  */
 export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
   const { projectId, status, enabled = true } = filter;
@@ -30,6 +40,8 @@ export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
   const [loading, setLoading] = useState<boolean>(enabled);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const inFlightRef = useRef(false);
+  const fingerprintRef = useRef("");
 
   const statusKey = status?.join(",") ?? "";
 
@@ -41,8 +53,17 @@ export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
     return qs ? `/api/jobs?${qs}` : "/api/jobs";
   }, [projectId, statusKey]);
 
+  const applyJobs = useCallback((next: Job[]) => {
+    const fp = jobsFingerprint(next);
+    if (fp !== fingerprintRef.current) {
+      fingerprintRef.current = fp;
+      setJobs(next);
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || inFlightRef.current) return;
+    inFlightRef.current = true;
     try {
       const res = await fetch(queryUrl, { cache: "no-store" });
       const data = await res.json();
@@ -50,7 +71,7 @@ export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
         throw new Error(data?.error?.message ?? "Failed to fetch jobs");
       }
       if (mountedRef.current) {
-        setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+        applyJobs(Array.isArray(data.jobs) ? data.jobs : []);
         setError(null);
       }
     } catch (err) {
@@ -58,11 +79,12 @@ export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
         setError(err instanceof Error ? err.message : "Failed to fetch jobs");
       }
     } finally {
+      inFlightRef.current = false;
       if (mountedRef.current) {
         setLoading(false);
       }
     }
-  }, [enabled, queryUrl]);
+  }, [enabled, queryUrl, applyJobs]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -74,6 +96,7 @@ export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
   useEffect(() => {
     if (!enabled) return;
     let active = true;
+    fingerprintRef.current = "";
     (async () => {
       try {
         const res = await fetch(queryUrl, { cache: "no-store" });
@@ -82,7 +105,7 @@ export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
           throw new Error(data?.error?.message ?? "Failed to fetch jobs");
         }
         if (active && mountedRef.current) {
-          setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+          applyJobs(Array.isArray(data.jobs) ? data.jobs : []);
           setError(null);
         }
       } catch (err) {
@@ -98,7 +121,7 @@ export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
     return () => {
       active = false;
     };
-  }, [enabled, queryUrl]);
+  }, [enabled, queryUrl, applyJobs]);
 
   const hasActiveJobs = useMemo(
     () => jobs.some((job) => !TERMINAL_STATUSES.has(job.status)),
@@ -107,10 +130,21 @@ export function useJobs(filter: UseJobsFilter = {}): UseJobsResult {
 
   useEffect(() => {
     if (!enabled || !hasActiveJobs) return;
-    const timer = setInterval(() => {
+    const poll = () => {
+      if (document.visibilityState === "hidden") return;
       void refresh();
-    }, 3000);
-    return () => clearInterval(timer);
+    };
+    const timer = setInterval(poll, 3000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [enabled, hasActiveJobs, refresh]);
 
   const retryJob = useCallback(

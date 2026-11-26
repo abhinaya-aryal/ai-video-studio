@@ -13,7 +13,7 @@ import type { ElementKind, Job, ReferenceElement } from "@/db/schema";
 import { JobStatusBadge } from "@/components/JobStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -21,9 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { buildElementImagePrompt } from "@/lib/studio/element-image";
 
 interface ElementCardProps {
   projectId: string;
+  styleBible: string;
+  storyContext: string;
   element: ReferenceElement;
   elements: ReferenceElement[];
   jobs: Job[];
@@ -40,6 +43,8 @@ const KIND_BADGE_VARIANT: Record<ElementKind, "accent" | "info" | "warning"> = {
 
 export function ElementCard({
   projectId,
+  styleBible,
+  storyContext,
   element,
   elements,
   jobs,
@@ -48,7 +53,14 @@ export function ElementCard({
   onRetryJob,
 }: ElementCardProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [promptOverride, setPromptOverride] = useState("");
+  const defaultPrompt = useMemo(
+    () => buildElementImagePrompt(element, styleBible, storyContext),
+    [element, styleBible, storyContext],
+  );
+  const [customPrompt, setCustomPrompt] = useState<string | null>(null);
+  const promptValue = customPrompt ?? defaultPrompt;
+  const isPromptEdited =
+    customPrompt !== null && customPrompt !== defaultPrompt;
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [referenceSelection, setReferenceSelection] = useState<string | null>(
@@ -91,6 +103,12 @@ export function ElementCard({
     latestJob.status !== "FAILED";
 
   const handleGenerate = async () => {
+    const trimmedPrompt = promptValue.trim();
+    if (!trimmedPrompt) {
+      toast.error("Enter a generation prompt first.");
+      return;
+    }
+
     setGenerating(true);
     try {
       const res = await fetch("/api/generate/element-sheet", {
@@ -99,7 +117,7 @@ export function ElementCard({
         body: JSON.stringify({
           projectId,
           elementId: element.id,
-          ...(promptOverride.trim() ? { prompt: promptOverride.trim() } : {}),
+          prompt: trimmedPrompt,
           ...(referencePath
             ? { referenceAssetPaths: [referencePath] }
             : {}),
@@ -153,7 +171,7 @@ export function ElementCard({
   };
 
   return (
-    <article className="panel panel-hover flex flex-col gap-3.5 p-4">
+    <article className="panel flex flex-col gap-3.5 p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
@@ -198,8 +216,10 @@ export function ElementCard({
         {element.activeImagePath ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`/api/files/${element.activeImagePath}`}
+            src={`/api/files/${element.activeImagePath}?v=${element.updatedAt}`}
             alt={element.name}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
           />
         ) : (
@@ -244,19 +264,40 @@ export function ElementCard({
         </Select>
       </div>
 
-      <Input
-        value={promptOverride}
-        onChange={(e) => setPromptOverride(e.target.value)}
-        placeholder="Optional extra direction (costume, mood, style)..."
-        className="h-8 text-xs"
-      />
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <label
+            htmlFor={`element-prompt-${element.id}`}
+            className="text-[11px] font-medium text-muted-foreground"
+          >
+            Generation prompt
+          </label>
+          {isPromptEdited && (
+            <button
+              type="button"
+              onClick={() => setCustomPrompt(null)}
+              className="text-[11px] font-medium text-primary hover:underline"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        <Textarea
+          id={`element-prompt-${element.id}`}
+          value={promptValue}
+          onChange={(e) => setCustomPrompt(e.target.value)}
+          rows={5}
+          placeholder="Describe the image to generate..."
+          className="max-h-48 overflow-y-auto resize-y text-xs leading-relaxed md:text-xs"
+        />
+      </div>
 
       <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
           size="sm"
           onClick={handleGenerate}
-          disabled={generating || isJobActive}
+          disabled={generating || isJobActive || !promptValue.trim()}
           className="gap-1.5"
         >
           {generating || isJobActive ? (

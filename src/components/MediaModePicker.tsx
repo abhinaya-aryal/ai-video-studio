@@ -256,6 +256,8 @@ export function MediaModePicker({
                   <img
                     src={item.url}
                     alt={item.name}
+                    loading="lazy"
+                    decoding="async"
                     className="size-8 rounded object-cover"
                   />
                 )}

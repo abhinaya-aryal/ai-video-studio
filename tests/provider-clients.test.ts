@@ -574,6 +574,8 @@ describe("OpenAI-compatible text client and provider routing", () => {
     expect(qwenFetch.mock.calls[0][0]).toBe(
       "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
     );
+    const qwenBody = JSON.parse(String(qwenFetch.mock.calls[0][1]?.body));
+    expect(qwenBody.enable_thinking).toBe(false);
 
     const openaiFetch = vi.fn<typeof fetch>().mockResolvedValueOnce(
       new Response(
@@ -597,6 +599,8 @@ describe("OpenAI-compatible text client and provider routing", () => {
     expect(openaiFetch.mock.calls[0][0]).toBe(
       "http://localhost:11434/v1/chat/completions",
     );
+    const openaiBody = JSON.parse(String(openaiFetch.mock.calls[0][1]?.body));
+    expect("enable_thinking" in openaiBody).toBe(false);
   });
 });
 

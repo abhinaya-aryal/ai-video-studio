@@ -33,7 +33,6 @@ import {
 } from "@/lib/providers/wan-payload";
 import { resolveInsideProjects } from "@/lib/storage/paths";
 import { stableSeed } from "@/lib/studio/seed";
-import { paletteForPreset } from "@/lib/studio/style-palette";
 
 /** Per-scene media uploaded in Stage 3 (project-relative paths or URLs). */
 /**
@@ -345,6 +344,7 @@ export async function buildSceneVideoRequest(
       duration: scene.duration,
       resolution: project.resolution,
       ratio: project.aspectRatio,
+      ...(prompt.length >= 80 ? { promptExtend: false } : {}),
     },
     cap,
   );
@@ -380,7 +380,7 @@ export interface SceneKeyframeOptions {
 export async function buildSceneKeyframeRequest(
   scene: Scene,
   elements: ReferenceElement[],
-  project: Pick<Project, "styleBible" | "aspectRatio" | "stylePresetId">,
+  project: Pick<Project, "styleBible" | "aspectRatio">,
   cap: ModelCapability,
   options: SceneKeyframeOptions = {},
   deps: Pick<SceneVideoRequestDeps, "prepareImage"> = {},
@@ -441,7 +441,6 @@ export async function buildSceneKeyframeRequest(
         scene.id,
         options.position ?? "first",
       ),
-      colorPalette: paletteForPreset(project.stylePresetId),
       needsOssHeader,
       params: {
         position: options.position ?? "first",

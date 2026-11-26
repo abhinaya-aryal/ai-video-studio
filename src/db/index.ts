@@ -45,11 +45,12 @@ const BUILTIN_STYLE_PRESETS = [
       "Clean commercial studio showcase, precision rim lighting, glossy macro highlights, controlled neutral backdrop, smooth motorized camera glides.",
     isBuiltin: 1,
   },
+
   {
-    id: "preset-3d-mythic",
-    name: "Mythic 3D Animation",
+    id: "preset-3d-hindu-epic",
+    name: "Epic Hindu Mythology 3D",
     styleBible:
-      "Feature-quality stylized 3D animation, grounded mythic ancient-world characters with appealing proportions and detailed costumes, physically based materials, soft subsurface skin, and hand-crafted props. Lush layered forest environments, warm volumetric sunlight and god rays, drifting pollen and atmospheric haze, cinematic depth of field, gentle rim light, earthy green and gold palette.",
+      "Premium modern theatrical 3D animation depicting the ancient Hindu mythological universe, inspired by the Ramayana, Mahabharata, Puranas, and other sacred Hindu scriptures. Feature-quality character modeling with expressive faces, anatomically refined proportions, beautifully detailed traditional Indian attire, intricate gold ornaments, sacred jewelry, elaborate crowns, divine weapons, and historically inspired ancient Indian costumes. Gods, goddesses, sages, warriors, kings, and mythological beings should have distinctive, majestic, and spiritually evocative visual designs. Grand ancient Indian environments featuring magnificent palace architecture, intricately carved temples, sacred forests, hermitages, mountain kingdoms, celestial realms, and mythological landscapes. Sophisticated physically based rendering, richly detailed materials, realistic fabric simulation, natural skin shading, expressive facial animation, and fluid character movement. Cinematic lighting with radiant golden sunlight, ethereal divine illumination, volumetric god rays, atmospheric mist, dramatic skies, and subtle celestial particles. A rich visual palette of saffron, antique gold, deep crimson, royal blue, emerald green, and warm earth tones. Divine characters may feature elegant halos, luminous auras, and symbolic celestial effects, used tastefully and in accordance with their scriptural depictions. Grand cinematic compositions, sweeping camera movements, epic establishing shots, intimate emotional close-ups, and spectacular yet graceful action sequences. Balance contemporary high-end 3D animation craftsmanship with the cultural, spiritual, and artistic identity of ancient India. Maintain consistent character appearances, costumes, ornaments, weapons, architectural motifs, and visual continuity across every scene. Every frame should feel like a beautifully art-directed, emotionally immersive, big-budget animated mythological feature film.",
     isBuiltin: 1,
   },
 ] as const;

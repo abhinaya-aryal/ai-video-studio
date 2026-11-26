@@ -85,6 +85,10 @@ describe("refineStoryAndScenes", () => {
     expect(systemMessage?.content).toContain("Shot framing and motion");
     expect(systemMessage?.content).toContain("Text and audio");
     expect(systemMessage?.content).toContain("Dolly zoom");
+    expect(systemMessage?.content).toContain("Anamorphic");
+    expect(systemMessage?.content).toContain("Volumetric god rays");
+    expect(systemMessage?.content).toContain("Rule of thirds");
+    expect(systemMessage?.content).toContain("Room tone");
     expect(systemMessage?.content).toContain("No text.");
 
     const userMessage = chat.mock.calls[0]?.[0].find((m) => m.role === "user");
@@ -273,6 +277,39 @@ describe("refineStoryAndScenes", () => {
         chat: vi.fn<ChatCompletionFn>().mockResolvedValue(JSON.stringify(badKindPayload)),
       }),
     ).rejects.toThrow(RefinerError);
+  });
+
+  it("normalizes minor enum casing/hyphen slips in one pass without wasting a retry", async () => {
+    const slightlyOffPayload = makeValidPayload({
+      elements: [
+        { kind: "Character", name: "Kai", description: "Courier" },
+      ],
+      scenes: [
+        {
+          title: "Arrival",
+          linkedElementNames: ["Kai"],
+          visualPrompt: "Medium tracking shot of Kai on a wet rooftop. No text.",
+          cameraDirection: "Medium tracking shot",
+          audioMode: "Ambient-Only",
+          audioScript: "Rain on concrete.",
+          duration: 5,
+          videoMode: "First-Last-Frame",
+        },
+      ],
+    });
+
+    const chat = vi.fn<ChatCompletionFn>(async () =>
+      JSON.stringify(slightlyOffPayload),
+    );
+    const result = await refineStoryAndScenes({
+      roughIdea: "Courier on a rooftop",
+      chat,
+    });
+
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(result.elements[0]?.kind).toBe("character");
+    expect(result.scenes[0]?.audioMode).toBe("ambient_only");
+    expect(result.scenes[0]?.videoMode).toBe("first_last_frame");
   });
 });
 

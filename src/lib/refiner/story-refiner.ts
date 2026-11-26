@@ -26,8 +26,13 @@ export class RefinerError extends Error {
   }
 }
 
+function normalizeEnumInput(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  return value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
 export const RefinedElementSchema = z.object({
-  kind: z.enum(ELEMENT_KINDS),
+  kind: z.preprocess(normalizeEnumInput, z.enum(ELEMENT_KINDS)),
   name: z.string().trim().min(1),
   description: z.string().trim().default(""),
 });
@@ -40,13 +45,13 @@ export const RefinedSceneSchema = z.object({
     .transform((names) => names.map((name) => name.trim()).filter(Boolean)),
   visualPrompt: z.string().trim().min(1),
   cameraDirection: z.string().trim().default(""),
-  audioMode: z.enum(AUDIO_MODES),
+  audioMode: z.preprocess(normalizeEnumInput, z.enum(AUDIO_MODES)),
   audioScript: z.string().trim().default(""),
   duration: z
     .number()
     .finite()
     .transform((val) => Math.min(30, Math.max(2, Math.round(val)))),
-  videoMode: z.enum(VIDEO_MODES),
+  videoMode: z.preprocess(normalizeEnumInput, z.enum(VIDEO_MODES)),
 });
 
 export const RefinedStorySchema = z.object({
@@ -160,40 +165,50 @@ function validateAgainstSchema<T>(
   return { ok: true, data: result.data };
 }
 
+const MAX_REPAIR_ASSISTANT_CHARS = 6000;
+
 async function runJsonWithRepair<T>({
   messages,
   schema,
   chat,
   taskLabel,
+  maxTokens,
+  temperature,
 }: {
   messages: ChatMessage[];
   schema: z.ZodType<T>;
   chat: ChatCompletionFn;
   taskLabel: string;
+  maxTokens?: number;
+  temperature?: number;
 }): Promise<T> {
-  const firstRaw = await chat(messages, {
-    responseFormat: { type: "json_object" },
-  });
+  const callOptions = {
+    responseFormat: { type: "json_object" as const },
+    ...(maxTokens !== undefined ? { maxTokens } : {}),
+    ...(temperature !== undefined ? { temperature } : {}),
+  };
+
+  const firstRaw = await chat(messages, callOptions);
   const firstAttempt = validateAgainstSchema(firstRaw, schema);
   if (firstAttempt.ok) {
     return firstAttempt.data;
   }
 
+  const trimmedRaw =
+    firstRaw.length > MAX_REPAIR_ASSISTANT_CHARS
+      ? `${firstRaw.slice(0, MAX_REPAIR_ASSISTANT_CHARS)}...[truncated]`
+      : firstRaw;
+
   const repairMessages: ChatMessage[] = [
     ...messages,
-    { role: "assistant", content: firstRaw },
+    { role: "assistant", content: trimmedRaw },
     {
       role: "user",
-      content: [
-        `Your previous output failed validation (${firstAttempt.error}).`,
-        "Fix all issues and return ONLY a single valid JSON object matching the required schema, with no markdown code fences or extra text.",
-      ].join(" "),
+      content: `Validation failed (${firstAttempt.error}). Fix all issues and return ONLY compact valid JSON matching the schema, no markdown fences.`,
     },
   ];
 
-  const secondRaw = await chat(repairMessages, {
-    responseFormat: { type: "json_object" },
-  });
+  const secondRaw = await chat(repairMessages, callOptions);
   const secondAttempt = validateAgainstSchema(secondRaw, schema);
   if (secondAttempt.ok) {
     return secondAttempt.data;
@@ -222,26 +237,16 @@ export async function refineStoryAndScenes({
 
   const systemPrompt = [
     "You are a film director and storyboard architect for AI video production.",
-    "Expand the user's rough idea into a structured storyboard JSON object.",
-    "Return ONLY valid JSON with these exact top-level keys:",
-    '- "refinedStory": string (polished narrative synopsis)',
-    '- "styleBible": string (specific visual register, reference world, lighting, lens, palette; never just "cinematic")',
-    `- "elements": array of { "kind": ${ELEMENT_KINDS.map((k) => `"${k}"`).join(" | ")}, "name": string, "description": string }`,
-    '- "scenes": non-empty array of {',
-    '    "title": string,',
-    '    "linkedElementNames": string[] (exact names from elements[]),',
-    '    "visualPrompt": string (style, lighting, location, action, and the text note, following the six dimensions),',
-    '    "cameraDirection": string (shot size plus a camera term from the vocabulary),',
-    `    "audioMode": ${AUDIO_MODES.map((m) => `"${m}"`).join(" | ")},`,
-    '    "audioScript": string (the explicit audio directive; empty string only when audioMode is silent),',
-    '    "duration": integer between 2 and 30 (seconds),',
-    `    "videoMode": ${VIDEO_MODES.map((m) => `"${m}"`).join(" | ")}`,
-    "  }",
+    "Expand the rough idea into a compact valid JSON object (no markdown fences or pretty-printing) with exact keys:",
+    '- "refinedStory": concise narrative synopsis',
+    '- "styleBible": 1-2 crisp sentences naming visual register, lighting, lens, palette',
+    `- "elements": [{ "kind": ${ELEMENT_KINDS.map((k) => `"${k}"`).join(" | ")}, "name": string, "description": string }]`,
+    '- "scenes": non-empty [{ "title": string, "linkedElementNames": string[] (exact names from elements[]), "visualPrompt": string (style, lighting, location, action, visible text or "No text."), "cameraDirection": string (shot size + camera term), ' +
+      `"audioMode": ${AUDIO_MODES.map((m) => `"${m}"`).join(" | ")}, ` +
+      '"audioScript": string (matches audioMode; empty only when silent), "duration": integer 2..30, ' +
+      `"videoMode": ${VIDEO_MODES.map((m) => `"${m}"`).join(" | ")} }]`,
     "",
     buildPromptFramework(),
-    "",
-    "Apply the six dimensions to every scene. visualPrompt carries style, lighting, location, action, and the text note. cameraDirection carries framing and movement. audioScript carries the audio directive and must match the selected audioMode.",
-    "The styleBible must stay consistent across scenes and name a concrete visual register.",
   ].join("\n");
 
   const userLines = [`Rough idea: ${cleanIdea}`];
@@ -262,6 +267,7 @@ export async function refineStoryAndScenes({
     schema: RefinedStorySchema,
     chat,
     taskLabel: "Story refinement",
+    temperature: 0.6,
   });
 }
 
@@ -280,18 +286,14 @@ export async function polishPrompt({
   }
 
   const systemPrompt = [
-    "You are an AI cinematography prompt engineer.",
-    "Rewrite the user's prompt draft into production-ready video generation fields.",
-    "Preserve every detail already in the draft. Change only what the user asks to change.",
-    "Return ONLY valid JSON with these exact keys:",
-    '- "visualPrompt": string (style, lighting, location, action, and the text note, following the six dimensions)',
-    '- "cameraDirection": string (shot size plus a camera term from the vocabulary)',
-    '- "audioScript": string (the explicit audio directive for the selected audio mode)',
+    "You are an AI cinematography prompt engineer. Rewrite the draft into compact valid JSON (no markdown fences) with exact keys:",
+    '- "visualPrompt": style, lighting, location, action, and visible text (or "No text.")',
+    '- "cameraDirection": shot size + camera term from vocabulary',
+    '- "audioScript": explicit audio directive for the selected audio mode',
     "",
     buildPromptFramework(),
     "",
     audioDirective(context.audioMode),
-    "Put visible text in visualPrompt and write \"No text.\" when the shot has none.",
   ].join("\n");
 
   const userLines = [`Draft prompt: ${cleanText}`];
@@ -313,6 +315,8 @@ export async function polishPrompt({
     schema: PolishedPromptSchema,
     chat,
     taskLabel: "Prompt polish",
+    maxTokens: 700,
+    temperature: 0.4,
   });
 }
 

@@ -68,13 +68,30 @@ export function Stage2Elements({
 
   const sceneIds = useMemo(() => scenes.map((s) => s.id), [scenes]);
 
+  const latestSceneJobByKey = useMemo(() => {
+    const map = new Map<string, Job>();
+    for (const job of jobs) {
+      if (
+        !job.sceneId ||
+        (job.role !== "keyframe_first" &&
+          job.role !== "keyframe_last" &&
+          job.role !== "voiceover")
+      ) {
+        continue;
+      }
+      const key = `${job.sceneId}:${job.role}`;
+      const existing = map.get(key);
+      if (!existing || job.createdAt > existing.createdAt) {
+        map.set(key, job);
+      }
+    }
+    return map;
+  }, [jobs]);
+
   const getLatestSceneJob = (
     sceneId: string,
     role: "keyframe_first" | "keyframe_last" | "voiceover",
-  ): Job | null =>
-    jobs
-      .filter((j) => j.sceneId === sceneId && j.role === role)
-      .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  ): Job | null => latestSceneJobByKey.get(`${sceneId}:${role}`) ?? null;
 
   const handleGenerateKeyframe = async (
     sceneId: string,
@@ -178,6 +195,8 @@ export function Stage2Elements({
               <ElementCard
                 key={element.id}
                 projectId={project.id}
+                styleBible={project.styleBible}
+                storyContext={project.refinedStory || project.roughIdea}
                 element={element}
                 elements={elements}
                 jobs={jobs}
@@ -314,8 +333,10 @@ export function Stage2Elements({
                         {firstAsset ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={`/api/files/${firstAsset.filePath}`}
+                            src={`/api/files/${firstAsset.filePath}?v=${firstAsset.createdAt}`}
                             alt={`${scene.title} first keyframe`}
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                           />
                         ) : (
@@ -386,8 +407,10 @@ export function Stage2Elements({
                         {lastAsset ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={`/api/files/${lastAsset.filePath}`}
+                            src={`/api/files/${lastAsset.filePath}?v=${lastAsset.createdAt}`}
                             alt={`${scene.title} last keyframe`}
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                           />
                         ) : (

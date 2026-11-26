@@ -4,10 +4,12 @@ import type { z } from "zod";
 import {
   customModels,
   getDb,
+  jobs,
   projects,
   referenceElements,
   scenes,
   type CustomModel,
+  type Job,
   type Project,
   type ReferenceElement,
   type Scene,
@@ -161,6 +163,38 @@ export {
   aspectRatioToImageSize,
   prepareProjectImagePath,
 } from "@/lib/studio/scene-request";
+
+/**
+ * Public `jobs` projection for API responses. Omits `requestJson`, which can
+ * contain multi-megabyte inline Base64 image payloads that no UI reads.
+ */
+export const PUBLIC_JOB_COLUMNS = {
+  id: jobs.id,
+  projectId: jobs.projectId,
+  sceneId: jobs.sceneId,
+  elementId: jobs.elementId,
+  modality: jobs.modality,
+  modelId: jobs.modelId,
+  role: jobs.role,
+  externalTaskId: jobs.externalTaskId,
+  status: jobs.status,
+  claimedAt: jobs.claimedAt,
+  attempts: jobs.attempts,
+  errorCode: jobs.errorCode,
+  errorMessage: jobs.errorMessage,
+  resultAssetId: jobs.resultAssetId,
+  createdAt: jobs.createdAt,
+  updatedAt: jobs.updatedAt,
+};
+
+export type PublicJob = Omit<Job, "requestJson">;
+
+/** Strip `requestJson` (potentially multi-MB Base64 payloads) from a job before returning it over HTTP. */
+export function toPublicJob(job: Job): PublicJob {
+  const { requestJson: _omitted, ...publicJob } = job;
+  void _omitted;
+  return publicJob;
+}
 
 export function kickRunner(): void {
   void getRunner().tick();

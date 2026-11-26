@@ -325,7 +325,7 @@ describe("buildSceneKeyframeRequest", () => {
 
     expect(typeof first.payload.seed).toBe("number");
     expect(first.payload.seed).toBe(second.payload.seed);
-    expect(first.payload.colorPalette?.length).toBeGreaterThanOrEqual(3);
+    expect(first.payload.colorPalette).toBeUndefined();
   });
 });
 

@@ -9,6 +9,7 @@ import {
   scenes,
 } from "@/db";
 import {
+  PUBLIC_JOB_COLUMNS,
   RouteError,
   apiOk,
   handleRouteError,
@@ -57,7 +58,7 @@ export async function GET(_req: Request, context: RouteContext) {
       .all();
 
     const projectJobs = db
-      .select()
+      .select(PUBLIC_JOB_COLUMNS)
       .from(jobs)
       .where(eq(jobs.projectId, id))
       .orderBy(desc(jobs.createdAt))

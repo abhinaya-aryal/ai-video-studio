@@ -68,7 +68,7 @@ describe("SQLite database, migrations, and safe project storage", () => {
       "Anime",
       "Cinematic",
       "Documentary",
-      "Mythic 3D Animation",
+      "Epic Hindu Mythology 3D",
       "Product",
     ]);
     expect(presets.every((p) => p.isBuiltin === 1)).toBe(true);

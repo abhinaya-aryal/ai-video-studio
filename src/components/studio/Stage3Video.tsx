@@ -216,10 +216,37 @@ export function Stage3Video({
     [scenes],
   );
 
-  const getLatestVideoJob = (sceneId: string): Job | null =>
-    jobs
-      .filter((j) => j.sceneId === sceneId && j.role === "video_clip")
-      .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  const latestVideoJobByScene = useMemo(() => {
+    const map = new Map<string, Job>();
+    for (const job of jobs) {
+      if (!job.sceneId || job.role !== "video_clip") continue;
+      const existing = map.get(job.sceneId);
+      if (!existing || job.createdAt > existing.createdAt) {
+        map.set(job.sceneId, job);
+      }
+    }
+    return map;
+  }, [jobs]);
+
+  const takesByScene = useMemo(() => {
+    const map = new Map<string, Asset[]>();
+    for (const asset of assets) {
+      if (
+        !asset.sceneId ||
+        asset.type !== "video" ||
+        asset.role !== "video_clip"
+      ) {
+        continue;
+      }
+      const list = map.get(asset.sceneId);
+      if (list) {
+        list.push(asset);
+      } else {
+        map.set(asset.sceneId, [asset]);
+      }
+    }
+    return map;
+  }, [assets]);
 
   const handleSelectScene = (sceneId: string) => {
     setSelectedSceneId(sceneId);
@@ -384,15 +411,29 @@ export function Stage3Video({
         return;
       }
       if (scene.activeKeyframeFirstAssetId) {
-        await fetch(`/api/projects/${project.id}/scenes`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: scene.id,
-            activeKeyframeFirstAssetId: null,
-          }),
-        });
-        await onRefreshProject();
+        try {
+          const res = await fetch(`/api/projects/${project.id}/scenes`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: scene.id,
+              activeKeyframeFirstAssetId: null,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(
+              data?.error?.message ?? "Failed to remove first keyframe",
+            );
+          }
+          await onRefreshProject();
+        } catch (err) {
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Failed to remove first keyframe",
+          );
+        }
       }
       return;
     }
@@ -406,15 +447,29 @@ export function Stage3Video({
         return;
       }
       if (scene.activeKeyframeLastAssetId) {
-        await fetch(`/api/projects/${project.id}/scenes`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: scene.id,
-            activeKeyframeLastAssetId: null,
-          }),
-        });
-        await onRefreshProject();
+        try {
+          const res = await fetch(`/api/projects/${project.id}/scenes`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: scene.id,
+              activeKeyframeLastAssetId: null,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(
+              data?.error?.message ?? "Failed to remove last keyframe",
+            );
+          }
+          await onRefreshProject();
+        } catch (err) {
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Failed to remove last keyframe",
+          );
+        }
       }
       return;
     }
@@ -424,15 +479,29 @@ export function Stage3Video({
         const removeId = linkedRefIds[index];
         const allLinked = parseLinkedElementIds(scene.linkedElementIdsJson);
         const nextLinked = allLinked.filter((id) => id !== removeId);
-        await fetch(`/api/projects/${project.id}/scenes`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: scene.id,
-            linkedElementIds: nextLinked,
-          }),
-        });
-        await onRefreshProject();
+        try {
+          const res = await fetch(`/api/projects/${project.id}/scenes`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: scene.id,
+              linkedElementIds: nextLinked,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(
+              data?.error?.message ?? "Failed to unlink reference element",
+            );
+          }
+          await onRefreshProject();
+        } catch (err) {
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Failed to unlink reference element",
+          );
+        }
       } else {
         const localIdx = index - linkedRefIds.length;
         setLocalUploads((prev) => ({
@@ -530,7 +599,11 @@ export function Stage3Video({
       ) : (
         <div className="space-y-4">
           {scenes.map((scene, index) => {
-            const latestJob = getLatestVideoJob(scene.id);
+            const latestJob = latestVideoJobByScene.get(scene.id) ?? null;
+            const isJobActive =
+              latestJob !== null &&
+              latestJob.status !== "READY" &&
+              latestJob.status !== "FAILED";
             const activeVideo = scene.activeVideoAssetId
               ? assetsById.get(scene.activeVideoAssetId)
               : undefined;
@@ -547,7 +620,7 @@ export function Stage3Video({
               (firstAsset
                 ? {
                     filePath: firstAsset.filePath,
-                    url: `/api/files/${firstAsset.filePath}`,
+                    url: `/api/files/${firstAsset.filePath}?v=${firstAsset.createdAt}`,
                     name: "First Keyframe",
                   }
                 : null);
@@ -556,7 +629,7 @@ export function Stage3Video({
               (lastAsset
                 ? {
                     filePath: lastAsset.filePath,
-                    url: `/api/files/${lastAsset.filePath}`,
+                    url: `/api/files/${lastAsset.filePath}?v=${lastAsset.createdAt}`,
                     name: "Last Keyframe",
                   }
                 : null);
@@ -580,7 +653,7 @@ export function Stage3Video({
             const linkedRefItems: UploadedMediaItem[] = linkedElements.map(
               ({ el }) => ({
                 filePath: el.activeImagePath!,
-                url: `/api/files/${el.activeImagePath!}`,
+                url: `/api/files/${el.activeImagePath!}?v=${el.updatedAt}`,
                 name: el.name,
               }),
             );
@@ -596,12 +669,7 @@ export function Stage3Video({
               refAudios: refAudios.length,
             });
 
-            const sceneTakes = assets.filter(
-              (a) =>
-                a.sceneId === scene.id &&
-                a.type === "video" &&
-                a.role === "video_clip",
-            );
+            const sceneTakes = takesByScene.get(scene.id) ?? [];
             const droppedElements = droppedByScene[scene.id] ?? [];
             const isGenerating = generatingSceneId === scene.id;
 
@@ -662,16 +730,16 @@ export function Stage3Video({
                     <Button
                       type="button"
                       size="sm"
-                      disabled={isGenerating || !modeState.canSubmit}
+                      disabled={isGenerating || isJobActive || !modeState.canSubmit}
                       onClick={() => void handleGenerateClip(scene.id)}
                       className="gap-1.5"
                     >
-                      {isGenerating ? (
+                      {isGenerating || isJobActive ? (
                         <Loader2 className="size-3.5 animate-spin" />
                       ) : (
                         <Play className="size-3.5" />
                       )}
-                      Generate Clip
+                      {isJobActive ? "Generating..." : "Generate Clip"}
                     </Button>
                   </div>
                 </div>

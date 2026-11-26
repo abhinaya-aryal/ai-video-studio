@@ -2,6 +2,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { JOB_STATUSES, getDb, jobs, type JobStatus } from "@/db";
 import {
+  PUBLIC_JOB_COLUMNS,
   RouteError,
   apiOk,
   handleRouteError,
@@ -44,12 +45,16 @@ export async function GET(req: Request) {
     const rows =
       conditions.length > 0
         ? db
-            .select()
+            .select(PUBLIC_JOB_COLUMNS)
             .from(jobs)
             .where(and(...conditions))
             .orderBy(desc(jobs.createdAt))
             .all()
-        : db.select().from(jobs).orderBy(desc(jobs.createdAt)).all();
+        : db
+            .select(PUBLIC_JOB_COLUMNS)
+            .from(jobs)
+            .orderBy(desc(jobs.createdAt))
+            .all();
 
     return apiOk({ jobs: rows });
   } catch (err) {
@@ -90,7 +95,7 @@ export async function POST(req: Request) {
       .run();
 
     const updated = db
-      .select()
+      .select(PUBLIC_JOB_COLUMNS)
       .from(jobs)
       .where(eq(jobs.id, input.jobId))
       .get();

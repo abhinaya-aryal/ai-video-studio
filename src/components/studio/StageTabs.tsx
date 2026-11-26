@@ -173,7 +173,7 @@ export function StageTabs({ projectId }: StageTabsProps) {
       }}
       className="space-y-6"
     >
-      <div className="sticky top-0 z-20 -mx-8 space-y-4 border-b border-border bg-background/85 px-8 py-4 backdrop-blur lg:-mx-12 lg:px-12">
+      <div className="sticky top-3 z-20 space-y-4 rounded-xl border border-border bg-background/90 px-5 py-4 shadow-sm backdrop-blur-md">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -194,7 +194,7 @@ export function StageTabs({ projectId }: StageTabsProps) {
               <Badge variant="outline">{project.aspectRatio}</Badge>
               <Badge variant="outline">{project.resolution}</Badge>
               <Badge variant="secondary" className="font-mono text-xs">
-                {project.defaultVideoModel}
+                {project.defaultVideoModel || "Global model"}
               </Badge>
               {hasActiveJobs && (
                 <Badge variant="info" className="gap-1.5 tabular-nums">

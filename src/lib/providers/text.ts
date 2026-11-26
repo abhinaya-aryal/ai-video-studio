@@ -72,6 +72,7 @@ export function getTextChat(
       apiKey,
       model,
       messages,
+      enableThinking: false,
       ...callOptions,
       onUsage: options.onUsage,
       fetchFn,

@@ -10,13 +10,13 @@ import {
   prepareProjectImagePath,
   requireElement,
   requireProject,
+  toPublicJob,
 } from "@/lib/api/route-helpers";
 import { enqueueJob } from "@/lib/jobs/runner";
 import { getModelCapabilities } from "@/lib/providers/catalog";
 import { resolveSlotModel } from "@/lib/providers/model-selection";
-import { buildElementImagePrompt } from "@/lib/studio/element-image";
+import { resolveElementImagePrompt } from "@/lib/studio/element-image";
 import { stableSeed } from "@/lib/studio/seed";
-import { paletteForPreset } from "@/lib/studio/style-palette";
 
 const ElementSheetSchema = z.object({
   projectId: z.string().trim().min(1),
@@ -45,9 +45,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const basePrompt = buildElementImagePrompt(
+    const basePrompt = resolveElementImagePrompt(
       element,
       project.styleBible,
+      project.refinedStory || project.roughIdea,
       input.prompt,
     );
 
@@ -75,14 +76,13 @@ export async function POST(req: Request) {
         n: 1,
         thinkingMode: false,
         seed: stableSeed("element", project.id, element.id),
-        colorPalette: paletteForPreset(project.stylePresetId),
         needsOssHeader,
         params: { size: input.size },
       },
     });
 
     kickRunner();
-    return apiOk({ job }, 202);
+    return apiOk({ job: toPublicJob(job) }, 202);
   } catch (err) {
     return handleRouteError(err);
   }

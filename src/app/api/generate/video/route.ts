@@ -15,6 +15,7 @@ import {
   prepareProjectImagePath,
   requireProject,
   requireScene,
+  toPublicJob,
 } from "@/lib/api/route-helpers";
 import { SceneUploadsSchema } from "@/lib/api/scene-uploads";
 import { enqueueJob } from "@/lib/jobs/runner";
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
       });
 
       kickRunner();
-      return apiOk({ job, droppedElements }, 202);
+      return apiOk({ job: toPublicJob(job), droppedElements }, 202);
     }
 
     const project = input.projectId
@@ -162,7 +163,7 @@ export async function POST(req: Request) {
     });
 
     kickRunner();
-    return apiOk({ job }, 202);
+    return apiOk({ job: toPublicJob(job) }, 202);
   } catch (err) {
     return handleRouteError(err);
   }

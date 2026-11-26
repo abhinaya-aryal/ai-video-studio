@@ -9,6 +9,7 @@ import {
   kickRunner,
   parseJsonBody,
   requireProject,
+  toPublicJob,
 } from "@/lib/api/route-helpers";
 import { SceneUploadsSchema } from "@/lib/api/scene-uploads";
 import { enqueueJob } from "@/lib/jobs/runner";
@@ -140,7 +141,7 @@ export async function POST(req: Request) {
         totalSeconds,
         resolution,
         model,
-        jobs: enqueuedJobs,
+        jobs: enqueuedJobs.map(toPublicJob),
         droppedElementsByScene,
       },
       202,

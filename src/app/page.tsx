@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -199,12 +200,12 @@ export default function ProjectsDashboardPage() {
             {unresolvedRoles.map((role) => ROLE_LABELS[role] ?? role).join(", ")}.
             Generation stays blocked until each role resolves.
           </span>
-          <a
+          <Link
             href="/settings/models"
             className="rounded-md border border-warning/50 px-2.5 py-1 font-medium hover:bg-warning/20"
           >
             Choose models
-          </a>
+          </Link>
         </div>
       )}
 

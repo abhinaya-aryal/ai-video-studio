@@ -208,7 +208,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Style",
-        text: "Pick a Style Preset or Custom / None, and optionally prefill the Style Bible. Built-in presets are Cinematic, Anime, Documentary, Product, and Mythic 3D Animation. A preset copies its Style Bible into the project at creation time.",
+        text: "Pick a Style Preset or Custom / None, and optionally prefill the Style Bible. Built-in presets are Cinematic, Anime, Documentary, Product, and Epic Hindu Mythology 3D. A preset copies its Style Bible into the project at creation time.",
       },
       {
         label: "Output settings",
@@ -278,7 +278,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       "The Style Bible is the visual contract for the whole project. It feeds refinement, prompt polishing, element images, keyframes, and video prompts, and it can be saved as a reusable preset.",
     bullets: [
       "Save as Preset stores the current Style Bible under a name for future projects.",
-      "Built-in presets are Cinematic, Anime, Documentary, Product, and Mythic 3D Animation; custom presets can be deleted.",
+      "Built-in presets are Cinematic, Anime, Documentary, Product, and Epic Hindu Mythology 3D; custom presets can be deleted.",
       "Selecting a preset at project creation copies its text; later edits stay local to the project.",
     ],
     details: [
@@ -400,14 +400,18 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     summary:
       "Each element needs one canonical image. Generating or uploading a single image gives every keyframe and clip a consistent visual anchor, while the video model handles poses and expressions.",
     bullets: [
-      "Generate Image always uses the element description plus the project Style Bible.",
+      "Generation prompts pre-fill with the element description, story context, and project Style Bible, and can be edited as a whole.",
       "Upload accepts one image and makes it the active image immediately.",
       "Each element keeps one canonical image. A new generation or upload replaces the previous image and file.",
     ],
     details: [
       {
+        label: "Generation prompt",
+        text: "Pre-filled with the canonical prompt, element description, story context, and Style Bible. Edit any part directly before generating, or click Reset to restore the default prompt.",
+      },
+      {
         label: "Generate Image",
-        text: "Optionally add extra direction. It is appended to the full canonical prompt, so the element description and Style Bible are never dropped. The button shows Generating while the job runs and disables duplicate submissions.",
+        text: "Sends the full prompt from the editor directly to the image model. The button shows Generating while the job runs and disables duplicate submissions.",
       },
       {
         label: "Reference image",
@@ -812,7 +816,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Defaults",
-        text: "New projects use 16:9 and 720P with no video model preselected; choose one per project or rely on the global video role. New scenes use 5 seconds, ambient_only audio, and omni_reference video. Built-in presets are Cinematic, Anime, Documentary, Product, and Mythic 3D Animation.",
+        text: "New projects use 16:9 and 720P with no video model preselected; choose one per project or rely on the global video role. New scenes use 5 seconds, ambient_only audio, and omni_reference video. Built-in presets are Cinematic, Anime, Documentary, Product, and Epic Hindu Mythology 3D.",
       },
     ],
     where: "Local disk and this guide",

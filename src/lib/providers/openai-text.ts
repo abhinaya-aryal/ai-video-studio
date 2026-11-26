@@ -15,6 +15,8 @@ export interface ChatCompletionOptions {
   maxTokens?: number;
   temperature?: number;
   responseFormat?: { type: "json_object" | "text" };
+  /** Qwen/DashScope thinking toggle; false skips hidden reasoning tokens. */
+  enableThinking?: boolean;
   /** Called with the provider usage block when the response includes one. */
   onUsage?: (usage: TokenUsage) => void;
 }
@@ -41,6 +43,7 @@ export async function chatCompletion({
   maxTokens,
   temperature,
   responseFormat,
+  enableThinking,
   onUsage,
   fetchFn = fetch,
 }: ChatCompletionParams): Promise<string> {
@@ -59,6 +62,7 @@ export async function chatCompletion({
   if (maxTokens !== undefined) body.max_tokens = maxTokens;
   if (temperature !== undefined) body.temperature = temperature;
   if (responseFormat) body.response_format = responseFormat;
+  if (enableThinking !== undefined) body.enable_thinking = enableThinking;
 
   const res = await fetchFn(`${cleanBase}/chat/completions`, {
     method: "POST",

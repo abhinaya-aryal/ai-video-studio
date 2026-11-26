@@ -55,8 +55,15 @@ export function ProjectCard({
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-border pt-3 text-xs text-muted-foreground">
-            <span className="truncate rounded-full border border-border bg-surface-2/70 px-2.5 py-0.5 font-mono text-[11px] text-foreground">
-              {project.defaultVideoModel}
+            <span
+              className={cn(
+                "truncate rounded-full border border-border bg-surface-2/70 px-2.5 py-0.5 font-mono text-[11px]",
+                project.defaultVideoModel
+                  ? "text-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              {project.defaultVideoModel || "Global model"}
             </span>
             <span className="shrink-0 tabular-nums text-[11px] text-subtle-foreground">
               {new Date(project.updatedAt).toLocaleDateString()}

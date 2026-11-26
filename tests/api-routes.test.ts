@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
@@ -17,8 +17,12 @@ import { resetRunnerForTests } from "@/lib/jobs/runner";
 import { GET as getFile } from "@/app/api/files/[...path]/route";
 import { POST as generateBatch } from "@/app/api/generate/batch/route";
 import { POST as generateVideo } from "@/app/api/generate/video/route";
+import { GET as listJobs } from "@/app/api/jobs/route";
 import { POST as createProject } from "@/app/api/projects/route";
-import { DELETE as deleteProject } from "@/app/api/projects/[id]/route";
+import {
+  DELETE as deleteProject,
+  GET as getProject,
+} from "@/app/api/projects/[id]/route";
 import { POST as refineProject } from "@/app/api/projects/[id]/refine/route";
 import { GET as getSettingsStatus } from "@/app/api/settings/status/route";
 import { POST as uploadFile } from "@/app/api/upload/route";
@@ -497,5 +501,90 @@ describe("API Route Handlers", () => {
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: { code: string; message: string } };
     expect(json.error.code).toBe("WAN_VALIDATION");
+  });
+
+  it("GET /api/jobs and GET /api/projects/[id] omit requestJson from job payloads", async () => {
+    const db = getDb();
+    const now = Date.now();
+    db.insert(projects)
+      .values({
+        id: "proj-jobs-lean",
+        slug: "proj-jobs-lean",
+        title: "Lean Jobs",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    db.insert(jobs)
+      .values({
+        id: "job-heavy",
+        projectId: "proj-jobs-lean",
+        modality: "image",
+        modelId: "wan2.7-image",
+        role: "element_sheet",
+        requestJson: JSON.stringify({ hugeBase64: "A".repeat(2048) }),
+        status: "QUEUED",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    const jobsRes = await listJobs(
+      new Request("http://localhost/api/jobs?projectId=proj-jobs-lean"),
+    );
+    expect(jobsRes.status).toBe(200);
+    const jobsJson = (await jobsRes.json()) as {
+      jobs: Array<Record<string, unknown>>;
+    };
+    expect(jobsJson.jobs).toHaveLength(1);
+    expect(jobsJson.jobs[0].id).toBe("job-heavy");
+    expect("requestJson" in jobsJson.jobs[0]).toBe(false);
+
+    const projRes = await getProject(
+      new Request("http://localhost/api/projects/proj-jobs-lean"),
+      { params: Promise.resolve({ id: "proj-jobs-lean" }) },
+    );
+    expect(projRes.status).toBe(200);
+    const projJson = (await projRes.json()) as {
+      jobs: Array<Record<string, unknown>>;
+    };
+    expect(projJson.jobs).toHaveLength(1);
+    expect("requestJson" in projJson.jobs[0]).toBe(false);
+  });
+
+  it("GET /api/files/[...path] supports Range requests (206) and ETag revalidation (304)", async () => {
+    const sampleDir = path.join(process.env.PROJECTS_DIR!, "demo-proj");
+    mkdirSync(sampleDir, { recursive: true });
+    writeFileSync(path.join(sampleDir, "clip.mp4"), "0123456789abcdef");
+
+    const fullRes = await getFile(
+      new Request("http://localhost/api/files/demo-proj/clip.mp4"),
+      { params: Promise.resolve({ path: ["demo-proj", "clip.mp4"] }) },
+    );
+    expect(fullRes.status).toBe(200);
+    expect(fullRes.headers.get("accept-ranges")).toBe("bytes");
+    expect(fullRes.headers.get("cache-control")).toBe("private, no-cache");
+    const etag = fullRes.headers.get("etag");
+    expect(etag).toBeTruthy();
+    expect(await fullRes.text()).toBe("0123456789abcdef");
+
+    const notModifiedRes = await getFile(
+      new Request("http://localhost/api/files/demo-proj/clip.mp4", {
+        headers: { "If-None-Match": etag! },
+      }),
+      { params: Promise.resolve({ path: ["demo-proj", "clip.mp4"] }) },
+    );
+    expect(notModifiedRes.status).toBe(304);
+
+    const rangeRes = await getFile(
+      new Request("http://localhost/api/files/demo-proj/clip.mp4", {
+        headers: { Range: "bytes=4-9" },
+      }),
+      { params: Promise.resolve({ path: ["demo-proj", "clip.mp4"] }) },
+    );
+    expect(rangeRes.status).toBe(206);
+    expect(rangeRes.headers.get("content-range")).toBe("bytes 4-9/16");
+    expect(rangeRes.headers.get("content-length")).toBe("6");
+    expect(await rangeRes.text()).toBe("456789");
   });
 });

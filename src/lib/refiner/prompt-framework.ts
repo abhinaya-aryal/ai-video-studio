@@ -26,60 +26,136 @@ export const PROMPT_DIMENSIONS = [
   },
 ] as const;
 
-/** Camera terms that change model output, with the effect each one produces. */
+/** Shot sizes and framing scales. */
+export const SHOT_SIZE_VOCABULARY = [
+  "Extreme wide shot (EWS)",
+  "Wide / Establishing shot (WS)",
+  "Full shot (FS)",
+  "Medium wide / Cowboy shot",
+  "Medium shot (MS)",
+  "Medium close-up (MCU)",
+  "Close-up (CU)",
+  "Extreme close-up (ECU)",
+  "Two-shot",
+  "Insert / Cutaway",
+] as const;
+
+/** Camera moves and angles that visibly shape video model output. */
 export const CAMERA_VOCABULARY = [
   ["Oner", "uncut continuous single take, no cuts or edits"],
   ["Locked off", "static camera, no movement at all"],
   ["Push in", "camera moves forward toward the subject"],
   ["Pull back", "camera moves backward, revealing more of the scene"],
+  ["Tracking shot", "camera glides alongside or behind a moving subject"],
   ["Dolly zoom", "camera moves opposite to the zoom, distorting depth"],
   ["Orbit", "camera circles around the subject"],
+  ["Pan", "camera rotates horizontally on a fixed axis"],
+  ["Whip pan", "rapid horizontal pan with motion blur"],
+  ["Tilt", "camera rotates vertically on a fixed axis"],
+  ["Crane / Jib", "camera sweeps upward, downward, or arcs overhead"],
+  ["Pedestal", "camera rises or lowers vertically without tilting"],
+  ["Steadicam", "smooth floating movement following action"],
+  ["Handheld", "subtle organic camera shake for immediacy"],
+  ["Crash zoom", "sudden rapid zoom into a detail or face"],
   ["Dutch angle", "camera tilts on the horizontal axis, creating unease"],
   ["POV", "camera represents a character's literal eye view"],
   ["Over the shoulder (OTS)", "camera behind one character, looking at another"],
   ["Rack focus", "focus shifts between foreground and background mid-clip"],
-  ["Pan", "camera rotates horizontally on a fixed axis"],
-  ["Tilt", "camera rotates vertically on a fixed axis"],
-  ["Crane shot", "camera moves upward or arcs in a wide sweep"],
-  ["Extreme close-up (ECU)", "fills the frame with a detail such as an eye or a hand"],
   ["Low angle", "camera sits below the subject, looking up"],
+  ["High angle", "camera sits above the subject, looking down"],
+  ["Bird's-eye / Overhead", "straight-down top view"],
+  ["Worm's-eye", "ground-level extreme upward angle"],
 ] as const;
 
-const WEAK_EXAMPLE = '"A woman walking in a city at night."';
+/** Optics, lens focal lengths, and focus textures. */
+export const LENS_AND_FOCUS_VOCABULARY = [
+  "Anamorphic",
+  "24mm wide-angle",
+  "35mm",
+  "50mm natural",
+  "85mm telephoto",
+  "Macro",
+  "Fisheye",
+  "Shallow depth of field (bokeh)",
+  "Deep focus",
+  "Split diopter",
+  "Soft halation",
+  "35mm film grain",
+] as const;
+
+/** Concrete lighting setups and atmospheric qualities. */
+export const LIGHTING_VOCABULARY = [
+  "Golden hour",
+  "Blue hour",
+  "Chiaroscuro",
+  "Rembrandt lighting",
+  "Backlit / Silhouette",
+  "Rim light",
+  "Volumetric god rays",
+  "Practical light source",
+  "Neon spill",
+  "Soft overcast",
+  "Candlelight / Firelight",
+  "Moonlit",
+  "High-key",
+  "Low-key noir",
+  "Dappled foliage light",
+] as const;
+
+/** Composition, visual staging, and motion pacing cues. */
+export const COMPOSITION_AND_PACING_VOCABULARY = [
+  "Rule of thirds",
+  "Symmetrical / One-point perspective",
+  "Leading lines",
+  "Foreground framing",
+  "Negative space",
+  "Slow motion",
+  "Time-lapse",
+  "Speed ramp",
+  "Match cut",
+] as const;
+
+/** Audio design and soundscape cues. */
+export const AUDIO_VOCABULARY = [
+  "Room tone",
+  "Foley",
+  "Distant ambience",
+  "Wind / Weather bed",
+  "Diegetic sound",
+  "Sub-bass drone",
+  "Dry close-mic",
+  "Reverberant space",
+  "Off-screen voice",
+  "Whispered delivery",
+] as const;
+
 const STRONG_EXAMPLE =
   '"Medium tracking shot, camera follows at shoulder height. 1990s Hong Kong noir, desaturated blues. One streetlamp overhead, rain causing halos in the light. Narrow market street, vendors closing up. A woman in her 30s in a long coat walks fast, checking over her shoulder. No text. Audio: rain on canvas awnings, distant traffic."';
 
 /**
  * Instructions shared by prompt polish and storyboard refinement. Both call
  * sites inject this text so a scene prompt always carries the same six
- * dimensions and technical camera language.
+ * dimensions and full cinematography vocabulary without verbose padding.
  */
 export function buildPromptFramework(): string {
   const dimensions = PROMPT_DIMENSIONS.map(
     (dimension, index) => `${index + 1}. ${dimension.name}: ${dimension.rule}`,
   ).join("\n");
 
-  const camera = CAMERA_VOCABULARY.map(
-    ([term, effect]) => `- ${term}: ${effect}`,
-  ).join("\n");
+  const cameraTerms = CAMERA_VOCABULARY.map(([term]) => term).join(", ");
 
   return [
-    "Build every prompt from these six dimensions, in this order:",
+    "Cover these six dimensions in order:",
     dimensions,
     "",
-    "Prompt rules:",
-    "- Keep 4 to 6 core elements. Do not stack competing details.",
-    "- Direct, not decorative. Write \"single practical lamp source\" instead of \"moody lighting\".",
-    "- Ground the scene in coherent real-world physics and logic.",
-    "- Never leave audio unspecified. Silent is a choice, not an omission.",
-    "- Replace subjective labels with concrete technical references. Write \"Super-8 grain, warm amber grade, 1978\" instead of \"nostalgic\".",
-    "- When editing an existing prompt, preserve every established detail and change only what the user asked to change.",
-    "",
-    "Camera vocabulary. Pair shot size with movement:",
-    camera,
-    "",
-    `Weak: ${WEAK_EXAMPLE}`,
-    `Strong: ${STRONG_EXAMPLE}`,
+    "Rules: 4-6 core elements; concrete technical language (not vague labels like 'cinematic' or 'moody'); coherent real-world physics; never omit audio; preserve existing details when editing.",
+    `Shot sizes: ${SHOT_SIZE_VOCABULARY.join(", ")}.`,
+    `Camera & angles (pair shot size + movement): ${cameraTerms}.`,
+    `Lens & focus: ${LENS_AND_FOCUS_VOCABULARY.join(", ")}.`,
+    `Lighting: ${LIGHTING_VOCABULARY.join(", ")}.`,
+    `Composition & pacing: ${COMPOSITION_AND_PACING_VOCABULARY.join(", ")}.`,
+    `Audio cues: ${AUDIO_VOCABULARY.join(", ")}.`,
+    `Example: ${STRONG_EXAMPLE}`,
   ].join("\n");
 }
 
