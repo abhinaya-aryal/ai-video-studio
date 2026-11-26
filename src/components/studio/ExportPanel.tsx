@@ -105,6 +105,7 @@ export function ExportPanel({ project }: ExportPanelProps) {
               render={
                 <a href={zipUrl} download={`${project.slug}-kdenlive.zip`} />
               }
+              nativeButton={false}
               className="gap-1.5"
             >
               <Archive className="size-4" />
@@ -137,6 +138,7 @@ export function ExportPanel({ project }: ExportPanelProps) {
                   render={
                     <a href={kdenliveUrl} download="project.kdenlive" />
                   }
+                  nativeButton={false}
                   size="xs"
                   variant="secondary"
                   className="gap-1.5"

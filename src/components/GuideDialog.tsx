@@ -201,6 +201,7 @@ export function GuideDialog({ open, onOpenChange }: GuideDialogProps) {
               render={
                 <Link href={step.href} onClick={() => onOpenChange(false)} />
               }
+              nativeButton={false}
             >
               {step.cta}
               <ArrowUpRight className="size-3.5" aria-hidden="true" />
