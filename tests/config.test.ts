@@ -45,12 +45,20 @@ describe("config and maskApiKey", () => {
   });
 
   it("auto-detects token_plan keyType for sk-sp- keys", () => {
+    process.env.DATA_DIR = path.join(
+      os.tmpdir(),
+      "aivs-config-test-no-settings",
+    );
     process.env.QWEN_API_KEY = "sk-sp-1234567890abcdef";
     const config = getConfig();
     expect(config.qwen.keyType).toBe("token_plan");
   });
 
   it("auto-detects standard keyType for non-token-plan keys", () => {
+    process.env.DATA_DIR = path.join(
+      os.tmpdir(),
+      "aivs-config-test-no-settings",
+    );
     process.env.QWEN_API_KEY = "sk-abc";
     const config = getConfig();
     expect(config.qwen.keyType).toBe("standard");

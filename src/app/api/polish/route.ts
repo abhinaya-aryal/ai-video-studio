@@ -6,8 +6,7 @@ import {
   parseJsonBody,
 } from "@/lib/api/route-helpers";
 import { getConfig } from "@/lib/config";
-import { resolveSlotModel } from "@/lib/providers/model-selection";
-import { getTextChat } from "@/lib/providers/text";
+import { getTextChat, resolveTextTarget } from "@/lib/providers/text";
 import { polishPrompt } from "@/lib/refiner/story-refiner";
 import { recordUsage } from "@/lib/usage/record";
 
@@ -28,17 +27,14 @@ export async function POST(req: Request) {
     const input = await parseJsonBody(req, PolishSchema);
     const db = getDb();
     const cfg = getConfig();
-    const textModel =
-      cfg.textProvider === "openai_compat"
-        ? (cfg.openaiCompat?.model ?? "openai-compat")
-        : resolveSlotModel(db, "text_polish").modelId;
+    const target = resolveTextTarget(cfg, db, "text_polish");
     const chat = getTextChat(cfg, fetch, {
       role: "text_polish",
       onUsage: (usage) =>
         recordUsage(db, {
           projectId: input.projectId ?? null,
           modality: "text",
-          modelId: textModel,
+          modelId: target.modelId,
           ...usage,
         }),
     });

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { CUSTOM_MODEL_MODALITIES, customModels, getDb, modelSelections } from "@/db";
@@ -11,11 +12,18 @@ import {
 } from "@/lib/api/route-helpers";
 import { getConfig } from "@/lib/config";
 import { getModelCapabilities } from "@/lib/providers/catalog";
+import { getGeminiModelCapabilities } from "@/lib/providers/media";
 import {
   getAutoPreset,
   resolveAllSlots,
 } from "@/lib/providers/model-selection";
 import { syncProviderModels } from "@/lib/providers/model-sync";
+import {
+  fetchAndCacheExternalProviderModels,
+  normalizeCachedProviderItems,
+  readProviderModelsCache,
+} from "@/lib/settings/provider-models";
+import { settingsFilePath } from "@/lib/settings/store";
 
 const CreateCustomModelSchema = z.object({
   modelId: z.string().trim().min(1),
@@ -41,7 +49,15 @@ export async function GET() {
       }
     }
 
-    const rows = getCustomModelRows();
+    const cfg = getConfig();
+    const uiManaged = fs.existsSync(settingsFilePath(cfg.dataDir));
+    const qwenProvider = (cfg.providers ?? []).find(
+      (p) => p.kind === "qwen" && p.enabled,
+    );
+    const includeQwenModels = !uiManaged || Boolean(qwenProvider && cfg.qwen.apiKey);
+    const qwenProviderName = qwenProvider?.name ?? "QwenCloud";
+
+    const rows = includeQwenModels ? getCustomModelRows() : [];
     const models = rows.map((row) => {
       let capabilities;
       try {
@@ -56,6 +72,9 @@ export async function GET() {
         modality: row.modality,
         family: row.family,
         source: row.source,
+        providerId: qwenProvider?.id ?? "qwen",
+        providerName: qwenProviderName,
+        providerKind: "qwen" as const,
         providerCreatedAt: row.providerCreatedAt,
         lastSeenAt: row.lastSeenAt,
         available: row.available === 1,
@@ -66,16 +85,84 @@ export async function GET() {
       };
     });
 
-    const lastSyncedAt = rows.reduce(
+    let extCache = readProviderModelsCache(cfg.dataDir);
+    const uncachedExternals = (cfg.providers ?? []).filter((p) => {
+      if ((p.kind !== "gemini" && p.kind !== "openai_compat") || !p.enabled) {
+        return false;
+      }
+      const entry = extCache[p.id];
+      if (!entry) return true;
+      // Upgrade legacy Gemini string-only caches so image/video/audio models appear.
+      if (p.kind === "gemini" && !Array.isArray(entry.items)) return true;
+      return false;
+    });
+    if (uncachedExternals.length > 0) {
+      for (const provider of uncachedExternals) {
+        try {
+          await fetchAndCacheExternalProviderModels(cfg.dataDir, provider);
+        } catch (err) {
+          const msg = `${provider.name}: ${err instanceof Error ? err.message : "sync failed"}`;
+          syncWarning = syncWarning ? `${syncWarning}; ${msg}` : msg;
+        }
+      }
+      extCache = readProviderModelsCache(cfg.dataDir);
+    }
+
+    const externalModels = (cfg.providers ?? [])
+      .filter(
+        (p) => (p.kind === "gemini" || p.kind === "openai_compat") && p.enabled,
+      )
+      .flatMap((provider) => {
+        const entry = extCache[provider.id];
+        const items = normalizeCachedProviderItems(entry);
+        return items.map((item) => {
+          const mediaCaps =
+            provider.kind === "gemini" && item.modality !== "text"
+              ? getGeminiModelCapabilities(item.modelId, item.modality)
+              : undefined;
+          return {
+            id: `ext:${provider.id}:${item.modelId}`,
+            modelId: item.modelId,
+            displayName: item.displayName ?? item.modelId,
+            modality: item.modality,
+            family: provider.preset ?? provider.kind,
+            source: "discovered" as const,
+            providerId: provider.id,
+            providerName: provider.name,
+            providerKind: provider.kind,
+            providerCreatedAt: null,
+            lastSeenAt: entry?.syncedAt ?? null,
+            available: true,
+            ignored: false,
+            capabilitiesEdited: false,
+            capabilitiesJson: "{}",
+            ttsCapable: item.ttsCapable ?? item.modality === "audio",
+            ...(mediaCaps ?? {}),
+          };
+        });
+      });
+
+    const qwenLastSyncedAt = rows.reduce(
       (latest, row) => Math.max(latest, row.lastSeenAt ?? 0),
       0,
     );
+    const extLastSyncedAt = Object.values(extCache).reduce(
+      (latest, entry) => Math.max(latest, entry.syncedAt ?? 0),
+      0,
+    );
+    const lastSyncedAt = Math.max(qwenLastSyncedAt, extLastSyncedAt);
+
+    const selections = includeQwenModels
+      ? db.select().from(modelSelections).all()
+      : [];
 
     return apiOk({
       models,
+      externalModels,
       customModels: rows,
-      selections: db.select().from(modelSelections).all(),
-      resolved: resolveAllSlots(db),
+      selections,
+      resolved: includeQwenModels ? resolveAllSlots(db) : [],
+      roleProviders: cfg.roleProviders ?? {},
       autoPreset: getAutoPreset(db),
       lastSyncedAt: lastSyncedAt || null,
       syncWarning,

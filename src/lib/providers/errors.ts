@@ -4,11 +4,13 @@ export interface MappedProviderError {
   retryable: boolean;
 }
 
-/** Redact any Bearer token or `sk-` API key pattern from upstream error text. */
+/** Redact any Bearer token or provider API key pattern from upstream error text. */
 export function sanitizeErrorText(text: string): string {
   return text
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [REDACTED]")
-    .replace(/\bsk-(?:sp-|ws-)?[A-Za-z0-9._-]{4,}/g, "[REDACTED_KEY]");
+    .replace(/\bsk-(?:sp-|ws-)?[A-Za-z0-9._-]{4,}/g, "[REDACTED_KEY]")
+    .replace(/\bAQ\.[A-Za-z0-9._-]{8,}/g, "[REDACTED_KEY]")
+    .replace(/\bAIza[A-Za-z0-9_-]{10,}/g, "[REDACTED_KEY]");
 }
 
 interface ErrorRule {
@@ -31,10 +33,11 @@ const ERROR_RULES: ErrorRule[] = [
       status === 429 ||
       code === "Throttling" ||
       code === "RequestLimitExceeded" ||
+      code === "RESOURCE_EXHAUSTED" ||
       Boolean(code?.startsWith("Throttling.")),
     defaultCode: "Throttling",
     userMessage:
-      "Provider rate limit reached (HTTP 429 / Throttling). The job runner will retry automatically with backoff.",
+      "Provider rate limit reached (HTTP 429 / Throttling). Please retry shortly.",
     retryable: true,
   },
   {
@@ -43,10 +46,13 @@ const ERROR_RULES: ErrorRule[] = [
       status === 403 ||
       code === "InvalidApiKey" ||
       code === "Unauthorized" ||
-      code === "AccessDenied",
+      code === "AccessDenied" ||
+      code === "UNAUTHENTICATED" ||
+      code === "PERMISSION_DENIED" ||
+      code === "API_KEY_INVALID",
     defaultCode: "InvalidApiKey",
     userMessage:
-      "API authentication failed. Check QWEN_API_KEY (or OPENAI_COMPAT_API_KEY) and Token Plan vs Standard routing in .env.local, then restart the server.",
+      "API authentication failed. Check your provider API key and endpoint settings in Settings → Providers.",
     retryable: false,
   },
   {
@@ -63,18 +69,22 @@ const ERROR_RULES: ErrorRule[] = [
     matches: (code) =>
       code === "InvalidParameter" ||
       code === "InvalidParameterValue" ||
-      code === "MissingParameter",
+      code === "MissingParameter" ||
+      code === "INVALID_ARGUMENT",
     defaultCode: "InvalidParameter",
     userMessage:
-      "Provider rejected one or more request parameters. Verify model, resolution, duration, and media attachments.",
+      "Provider rejected one or more request parameters. Verify API key, model, and request settings.",
     retryable: false,
   },
   {
     matches: (code, status) =>
-      status === 404 || code === "ModelNotFound" || code === "InvalidModel",
+      status === 404 ||
+      code === "ModelNotFound" ||
+      code === "InvalidModel" ||
+      code === "NOT_FOUND",
     defaultCode: "ModelNotFound",
     userMessage:
-      "Requested model or endpoint was not found (404). Verify the model ID and provider region.",
+      "Requested model or endpoint was not found (404). Sync models and choose an available model in Settings → Models.",
     retryable: false,
   },
   {
@@ -83,10 +93,11 @@ const ERROR_RULES: ErrorRule[] = [
       status >= 500 ||
       code === "InternalError" ||
       code === "ServiceUnavailable" ||
+      code === "UNAVAILABLE" ||
       code === "Timeout",
     defaultCode: "ServiceUnavailable",
     userMessage:
-      "Upstream provider encountered a temporary server error. Try again shortly.",
+      "Upstream provider encountered a temporary server error or high demand. Try again shortly.",
     retryable: true,
   },
 ];
@@ -141,7 +152,7 @@ export class ProviderHttpError extends Error {
   }
 }
 
-/** Safely parse a DashScope or OpenAI-compatible error response body. */
+/** Safely parse a DashScope, Gemini, or OpenAI-compatible error response body. */
 export async function parseProviderErrorResponse(
   res: Response,
 ): Promise<ProviderHttpError> {
@@ -152,14 +163,26 @@ export async function parseProviderErrorResponse(
     const text = await res.text();
     if (text) {
       try {
-        const json = JSON.parse(text) as {
+        const rawParsed = JSON.parse(text) as unknown;
+        const unwrapped = Array.isArray(rawParsed) ? rawParsed[0] : rawParsed;
+        const json = (unwrapped && typeof unwrapped === "object"
+          ? unwrapped
+          : {}) as {
           code?: unknown;
+          status?: unknown;
           message?: unknown;
-          error?: { code?: unknown; message?: unknown; type?: unknown };
+          error?: {
+            code?: unknown;
+            status?: unknown;
+            message?: unknown;
+            type?: unknown;
+          };
         };
         if (typeof json.code === "string") code = json.code;
+        else if (typeof json.error?.status === "string") code = json.error.status;
         else if (typeof json.error?.code === "string") code = json.error.code;
         else if (typeof json.error?.type === "string") code = json.error.type;
+        else if (typeof json.status === "string") code = json.status;
 
         if (typeof json.message === "string") detail = json.message;
         else if (typeof json.error?.message === "string") {

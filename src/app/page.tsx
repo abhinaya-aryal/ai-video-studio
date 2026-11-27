@@ -14,6 +14,10 @@ import { toast } from "sonner";
 import type { Project, StylePreset } from "@/db/schema";
 import type { ModelCapability } from "@/lib/providers/types";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  ModelSetupModal,
+  getMissingExplicitModels,
+} from "@/components/ModelSetupModal";
 import { PageHeader } from "@/components/PageHeader";
 import { ProjectCard } from "@/components/ProjectCard";
 import { Button } from "@/components/ui/button";
@@ -24,7 +28,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,13 +41,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1"] as const;
 const RESOLUTIONS = ["480P", "720P", "1080P"] as const;
-const ROLE_LABELS: Record<string, string> = {
-  text_refine: "Story refine",
-  text_polish: "Prompt polish",
-  image: "Images",
-  video: "Video",
-  audio: "Voiceover",
-};
 
 export default function ProjectsDashboardPage() {
   const router = useRouter();
@@ -52,7 +48,8 @@ export default function ProjectsDashboardPage() {
   const [presets, setPresets] = useState<StylePreset[]>([]);
   const [videoModels, setVideoModels] = useState<ModelCapability[]>([]);
   const [configured, setConfigured] = useState<boolean>(true);
-  const [unresolvedRoles, setUnresolvedRoles] = useState<string[]>([]);
+  const [missingModels, setMissingModels] = useState<string[]>([]);
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -96,13 +93,8 @@ export default function ProjectsDashboardPage() {
           : [];
         setVideoModels(models);
         setConfigured(Boolean(statusData?.configured));
-        const resolvedRows = Array.isArray(modelData.resolved)
-          ? modelData.resolved
-          : [];
-        setUnresolvedRoles(
-          resolvedRows
-            .filter((row: { modelId?: string | null }) => !row.modelId)
-            .map((row: { slot: string }) => row.slot),
+        setMissingModels(
+          getMissingExplicitModels(modelData, ["text", "image", "video"]),
         );
       } catch {
         if (active) toast.error("Failed to load dashboard data");
@@ -191,14 +183,21 @@ export default function ProjectsDashboardPage() {
     }
   };
 
+  const handleOpenNewProject = () => {
+    if (missingModels.length > 0) {
+      setSetupModalOpen(true);
+      return;
+    }
+    setDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
-      {unresolvedRoles.length > 0 && (
+      {missingModels.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-xs text-warning">
           <span>
-            No model is chosen for:{" "}
-            {unresolvedRoles.map((role) => ROLE_LABELS[role] ?? role).join(", ")}.
-            Generation stays blocked until each role resolves.
+            No model is chosen for: {missingModels.join(", ")}. Choose your
+            models before creating or editing projects.
           </span>
           <Link
             href="/settings/models"
@@ -214,15 +213,12 @@ export default function ProjectsDashboardPage() {
         title={<span className="prism-text">Projects</span>}
         description="Manage multi-scene stories, consistent element libraries, and a flat media folder ready for Kdenlive."
         actions={
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger
-              render={
-                <Button className="gap-2">
-                  <FolderPlus className="size-4" />
-                  <span>New Project</span>
-                </Button>
-              }
-            />
+          <>
+            <Button className="gap-2" onClick={handleOpenNewProject}>
+              <FolderPlus className="size-4" />
+              <span>New Project</span>
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>New Story Project</DialogTitle>
@@ -390,6 +386,7 @@ export default function ProjectsDashboardPage() {
                 </form>
               </DialogContent>
             </Dialog>
+          </>
         }
       />
 
@@ -399,12 +396,24 @@ export default function ProjectsDashboardPage() {
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning" />
             <div className="text-sm">
               <p className="font-medium text-warning">
-                Provider API key is not configured
+                No provider configured yet
               </p>
               <p className="text-xs text-muted-foreground">
-                Edit <code className="font-mono">.env.local</code> with your
-                DashScope or Token Plan key and restart the server, then verify
-                in <strong>Provider Status</strong> from the sidebar.
+                Add your provider API keys in{" "}
+                <Link
+                  href="/settings/providers"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  Settings → Providers
+                </Link>{" "}
+                and choose your models in{" "}
+                <Link
+                  href="/settings/models"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  Settings → Models
+                </Link>
+                .
               </p>
             </div>
           </div>
@@ -422,7 +431,7 @@ export default function ProjectsDashboardPage() {
           title="No projects yet"
           description="Start a multi-scene story project or jump straight into Quick Clip from the sidebar."
         >
-          <Button onClick={() => setDialogOpen(true)} className="gap-2">
+          <Button onClick={handleOpenNewProject} className="gap-2">
             <FolderPlus className="size-4" />
             <span>Create First Project</span>
           </Button>
@@ -439,6 +448,13 @@ export default function ProjectsDashboardPage() {
           ))}
         </div>
       )}
+
+      <ModelSetupModal
+        open={setupModalOpen}
+        onOpenChange={setSetupModalOpen}
+        missingTasks={missingModels}
+        actionLabel="create a project"
+      />
 
       <Dialog
         open={deleteTarget !== null}

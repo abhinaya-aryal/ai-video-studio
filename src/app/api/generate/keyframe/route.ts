@@ -13,8 +13,10 @@ import {
   toPublicJob,
 } from "@/lib/api/route-helpers";
 import { enqueueJob } from "@/lib/jobs/runner";
-import { getModelCapabilities } from "@/lib/providers/catalog";
-import { resolveSlotModel } from "@/lib/providers/model-selection";
+import {
+  prepareGeminiImageDataUri,
+  resolveMediaTarget,
+} from "@/lib/providers/media";
 import { buildSceneKeyframeRequest } from "@/lib/studio/scene-request";
 
 const GenerateKeyframeSchema = z.object({
@@ -33,10 +35,13 @@ export async function POST(req: Request) {
     const project = requireProject(input.projectId);
     const scene = requireScene(input.projectId, input.sceneId);
 
-    const modelId = resolveSlotModel(getDb(), "image", {
-      explicitModelId: input.modelId,
-    }).modelId;
-    const cap = getModelCapabilities(modelId, getCustomModelRows());
+    const target = resolveMediaTarget(
+      "image",
+      { explicitModelId: input.modelId },
+      getCustomModelRows(),
+    );
+    const modelId = target.modelId;
+    const cap = target.capabilities;
     if (cap.modality !== "image") {
       throw new RouteError(
         "VALIDATION_ERROR",
@@ -62,6 +67,9 @@ export async function POST(req: Request) {
         size: input.size,
         referenceElementIds: input.referenceElementIds,
       },
+      target.providerKind === "gemini"
+        ? { prepareImage: (p) => prepareGeminiImageDataUri(p) }
+        : undefined,
     );
 
     const job = enqueueJob({
@@ -70,7 +78,12 @@ export async function POST(req: Request) {
       modality: "image",
       role: input.position === "last" ? "keyframe_last" : "keyframe_first",
       modelId,
-      request: payload,
+      request: {
+        ...payload,
+        ...(target.providerKind === "gemini"
+          ? { providerKind: "gemini" as const, providerId: target.providerId }
+          : {}),
+      },
     });
 
     kickRunner();

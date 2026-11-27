@@ -19,8 +19,10 @@ import {
 } from "@/lib/api/route-helpers";
 import { SceneUploadsSchema } from "@/lib/api/scene-uploads";
 import { enqueueJob } from "@/lib/jobs/runner";
-import { getModelCapabilities } from "@/lib/providers/catalog";
-import { resolveSlotModel } from "@/lib/providers/model-selection";
+import {
+  prepareGeminiImageDataUri,
+  resolveMediaTarget,
+} from "@/lib/providers/media";
 import { MEDIA_TYPES } from "@/lib/providers/types";
 import { buildVideoSynthesisPayload } from "@/lib/providers/wan-payload";
 import { buildSceneVideoRequest } from "@/lib/studio/scene-request";
@@ -68,11 +70,16 @@ export async function POST(req: Request) {
     if ("sceneId" in input) {
       const project = requireProject(input.projectId);
       const scene = requireScene(input.projectId, input.sceneId);
-      const modelId = resolveSlotModel(getDb(), "video", {
-        explicitModelId: input.modelId,
-        projectModelId: project.defaultVideoModel,
-      }).modelId;
-      const cap = getModelCapabilities(modelId, customRows);
+      const target = resolveMediaTarget(
+        "video",
+        {
+          explicitModelId: input.modelId,
+          projectModelId: project.defaultVideoModel,
+        },
+        customRows,
+      );
+      const modelId = target.modelId;
+      const cap = target.capabilities;
 
       const elements = getDb()
         .select()
@@ -85,7 +92,12 @@ export async function POST(req: Request) {
         elements,
         project,
         cap,
-        { uploads: input.uploads },
+        {
+          uploads: input.uploads,
+          ...(target.providerKind === "gemini"
+            ? { prepareImage: (p) => prepareGeminiImageDataUri(p) }
+            : {}),
+        },
       );
 
       const job = enqueueJob({
@@ -94,7 +106,12 @@ export async function POST(req: Request) {
         modality: "video",
         role: "video_clip",
         modelId,
-        request: payload,
+        request: {
+          ...payload,
+          ...(target.providerKind === "gemini"
+            ? { providerKind: "gemini" as const, providerId: target.providerId }
+            : {}),
+        },
       });
 
       kickRunner();
@@ -105,11 +122,16 @@ export async function POST(req: Request) {
       ? requireProject(input.projectId)
       : getOrCreateQuickClipProject();
     const role = input.projectId ? "video_clip" : "quick_clip";
-    const modelId = resolveSlotModel(getDb(), "video", {
-      explicitModelId: input.modelId,
-      projectModelId: project.defaultVideoModel,
-    }).modelId;
-    const cap = getModelCapabilities(modelId, customRows);
+    const target = resolveMediaTarget(
+      "video",
+      {
+        explicitModelId: input.modelId,
+        projectModelId: project.defaultVideoModel,
+      },
+      customRows,
+    );
+    const modelId = target.modelId;
+    const cap = target.capabilities;
 
     const imageCount = input.media.filter((m) =>
       IMAGE_MEDIA_TYPES.has(m.type),
@@ -118,7 +140,9 @@ export async function POST(req: Request) {
       input.media.map(async (item) => ({
         type: item.type,
         url: IMAGE_MEDIA_TYPES.has(item.type)
-          ? await prepareProjectImagePath(item.url, modelId, imageCount)
+          ? target.providerKind === "gemini"
+            ? await prepareGeminiImageDataUri(item.url)
+            : await prepareProjectImagePath(item.url, modelId, imageCount)
           : item.url,
       })),
     );
@@ -151,6 +175,9 @@ export async function POST(req: Request) {
       modelId,
       request: {
         modality: "video",
+        ...(target.providerKind === "gemini"
+          ? { providerKind: "gemini" as const, providerId: target.providerId }
+          : {}),
         body,
         needsOssHeader,
         prompt: input.prompt,

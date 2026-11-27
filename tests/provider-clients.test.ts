@@ -672,10 +672,10 @@ describe("mapProviderError", () => {
     expect(mapped.userMessage.length).toBeGreaterThan(0);
   });
 
-  it("maps InvalidApiKey to message mentioning .env.local", () => {
+  it("maps InvalidApiKey to message pointing to Settings → Providers", () => {
     const mapped = mapProviderError("InvalidApiKey", 401);
     expect(mapped.code).toBe("InvalidApiKey");
     expect(mapped.retryable).toBe(false);
-    expect(mapped.userMessage).toContain(".env.local");
+    expect(mapped.userMessage).toContain("Settings → Providers");
   });
 });

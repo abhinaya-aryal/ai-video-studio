@@ -13,8 +13,10 @@ import {
 } from "@/lib/api/route-helpers";
 import { SceneUploadsSchema } from "@/lib/api/scene-uploads";
 import { enqueueJob } from "@/lib/jobs/runner";
-import { getModelCapabilities } from "@/lib/providers/catalog";
-import { resolveSlotModel } from "@/lib/providers/model-selection";
+import {
+  prepareGeminiImageDataUri,
+  resolveMediaTarget,
+} from "@/lib/providers/media";
 import {
   buildSceneKeyframeRequest,
   buildSceneVideoRequest,
@@ -50,13 +52,17 @@ export async function POST(req: Request) {
       .orderBy(asc(scenes.orderIndex))
       .all();
 
-    const model =
-      input.kind === "keyframes"
-        ? resolveSlotModel(db, "image", { explicitModelId: input.modelId }).modelId
-        : resolveSlotModel(db, "video", {
-            explicitModelId: input.modelId,
-            projectModelId: project.defaultVideoModel,
-          }).modelId;
+    const target = resolveMediaTarget(
+      input.kind === "keyframes" ? "image" : "video",
+      {
+        explicitModelId: input.modelId,
+        ...(input.kind === "clips"
+          ? { projectModelId: project.defaultVideoModel }
+          : {}),
+      },
+      getCustomModelRows(),
+    );
+    const model = target.modelId;
     const resolution =
       input.kind === "keyframes"
         ? aspectRatioToImageSize(project.aspectRatio)
@@ -74,7 +80,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const cap = getModelCapabilities(model, getCustomModelRows());
+    const cap = target.capabilities;
     const elements = db
       .select()
       .from(referenceElements)
@@ -83,8 +89,10 @@ export async function POST(req: Request) {
 
     // Shared across the batch so a linked element image is prepared once,
     // not once per scene.
-    const prepareImage = memoizeImagePreparer((filePath, count) =>
-      prepareProjectImagePath(filePath, model, count),
+    const prepareImage = memoizeImagePreparer((filePath, imgCount) =>
+      target.providerKind === "gemini"
+        ? prepareGeminiImageDataUri(filePath)
+        : prepareProjectImagePath(filePath, model, imgCount),
     );
     const prepareMedia = (filePath: string) =>
       prepareProjectMediaPath(filePath, model);
@@ -129,7 +137,15 @@ export async function POST(req: Request) {
           modality: input.kind === "keyframes" ? "image" : "video",
           role: input.kind === "keyframes" ? "keyframe_first" : "video_clip",
           modelId: model,
-          request: payload,
+          request: {
+            ...payload,
+            ...(target.providerKind === "gemini"
+              ? {
+                  providerKind: "gemini" as const,
+                  providerId: target.providerId,
+                }
+              : {}),
+          },
         }),
       );
     }

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { getDb } from "@/db";
 import {
   RouteError,
   apiOk,
@@ -12,8 +11,7 @@ import {
   toPublicJob,
 } from "@/lib/api/route-helpers";
 import { enqueueJob } from "@/lib/jobs/runner";
-import { getModelCapabilities } from "@/lib/providers/catalog";
-import { resolveSlotModel } from "@/lib/providers/model-selection";
+import { resolveMediaTarget } from "@/lib/providers/media";
 
 const GenerateTtsSchema = z.object({
   projectId: z.string().trim().min(1),
@@ -42,10 +40,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const modelId = resolveSlotModel(getDb(), "audio", {
-      explicitModelId: input.modelId,
-    }).modelId;
-    const cap = getModelCapabilities(modelId, getCustomModelRows());
+    const target = resolveMediaTarget(
+      "audio",
+      { explicitModelId: input.modelId },
+      getCustomModelRows(),
+    );
+    const modelId = target.modelId;
+    const cap = target.capabilities;
     if (cap.modality !== "audio") {
       throw new RouteError(
         "VALIDATION_ERROR",
@@ -62,6 +63,9 @@ export async function POST(req: Request) {
       modelId,
       request: {
         modality: "audio",
+        ...(target.providerKind === "gemini"
+          ? { providerKind: "gemini" as const, providerId: target.providerId }
+          : {}),
         text,
         voice: input.voice,
         format: input.format,

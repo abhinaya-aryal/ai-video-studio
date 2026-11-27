@@ -20,6 +20,13 @@ import {
   sanitizeErrorText,
 } from "@/lib/providers/errors";
 import {
+  downloadGeminiMediaUri,
+  geminiGenerateImage,
+  geminiGetVideoTaskStatus,
+  geminiSubmitVideoTask,
+  geminiSynthesizeSpeech,
+} from "@/lib/providers/gemini-client";
+import {
   generateImage,
   getTaskStatus,
   submitVideoTask,
@@ -28,6 +35,7 @@ import {
 } from "@/lib/providers/qwen-client";
 import { resolveQwenBaseUrl } from "@/lib/providers/qwen-endpoints";
 import type { VideoSynthesisRequestBody } from "@/lib/providers/wan-payload";
+import { readCredentialsFile } from "@/lib/settings/store";
 
 export const MAX_JOB_ATTEMPTS = 3;
 export const BASE_BACKOFF_MS = 1000;
@@ -45,6 +53,8 @@ export const MAX_TASK_AGE_MS: Record<JobModality, number> = {
 
 export interface PreparedVideoRequest {
   modality?: "video";
+  providerKind?: "qwen" | "gemini";
+  providerId?: string;
   body: VideoSynthesisRequestBody | Record<string, unknown>;
   needsOssHeader?: boolean;
   prompt?: string;
@@ -53,6 +63,8 @@ export interface PreparedVideoRequest {
 
 export interface PreparedImageRequest {
   modality?: "image";
+  providerKind?: "qwen" | "gemini";
+  providerId?: string;
   prompt: string;
   referenceImages?: string[];
   size?: string;
@@ -67,6 +79,8 @@ export interface PreparedImageRequest {
 
 export interface PreparedAudioRequest {
   modality?: "audio";
+  providerKind?: "qwen" | "gemini";
+  providerId?: string;
   text: string;
   voice?: string;
   format?: string;
@@ -141,7 +155,7 @@ function getQwenCredentials(): { baseUrl: string; apiKey: string } {
     throw new ProviderHttpError(
       mapProviderError("InvalidApiKey", 401),
       401,
-      "QWEN_API_KEY is not configured.",
+      "QwenCloud API key is not configured. Add it in Settings → Providers.",
     );
   }
   return {
@@ -150,12 +164,169 @@ function getQwenCredentials(): { baseUrl: string; apiKey: string } {
   };
 }
 
+function getGeminiCredentials(providerId?: string): {
+  apiKey: string;
+  baseUrl?: string;
+} {
+  const cfg = getConfig();
+  const providers = (cfg.providers ?? []).filter(
+    (p) => p.kind === "gemini" && p.enabled,
+  );
+  const provider =
+    (providerId ? providers.find((p) => p.id === providerId) : undefined) ??
+    providers[0];
+  if (!provider) {
+    throw new ProviderHttpError(
+      mapProviderError("InvalidApiKey", 401),
+      401,
+      "Google Gemini provider is not configured. Add it in Settings → Providers.",
+    );
+  }
+  const creds = readCredentialsFile(cfg.dataDir);
+  const apiKey = creds[provider.id]?.trim();
+  if (!apiKey) {
+    throw new ProviderHttpError(
+      mapProviderError("InvalidApiKey", 401),
+      401,
+      `API key for "${provider.name}" is missing. Add it in Settings → Providers.`,
+    );
+  }
+  return { apiKey, baseUrl: provider.baseUrl };
+}
+
+function extractGeminiVideoArgs(req: Record<string, unknown>): {
+  prompt: string;
+  firstFrameDataUri?: string;
+  lastFrameDataUri?: string;
+  aspectRatio?: string;
+  resolution?: string;
+  durationSeconds?: number;
+  generateAudio?: boolean;
+} {
+  const body =
+    typeof req.body === "object" && req.body !== null
+      ? (req.body as Record<string, unknown>)
+      : undefined;
+  const input =
+    typeof body?.input === "object" && body.input !== null
+      ? (body.input as Record<string, unknown>)
+      : undefined;
+  const parameters =
+    typeof body?.parameters === "object" && body.parameters !== null
+      ? (body.parameters as Record<string, unknown>)
+      : undefined;
+  const params =
+    typeof req.params === "object" && req.params !== null
+      ? (req.params as Record<string, unknown>)
+      : undefined;
+
+  const prompt =
+    (typeof req.prompt === "string" && req.prompt.trim()) ||
+    (typeof input?.prompt === "string" && input.prompt.trim()) ||
+    "";
+
+  let firstFrameDataUri: string | undefined;
+  let lastFrameDataUri: string | undefined;
+  const media = Array.isArray(input?.media)
+    ? (input.media as Array<{ type?: unknown; url?: unknown }>)
+    : [];
+  for (const item of media) {
+    if (typeof item?.url !== "string") continue;
+    if (item.type === "first_frame" && !firstFrameDataUri) {
+      firstFrameDataUri = item.url;
+    } else if (item.type === "last_frame" && !lastFrameDataUri) {
+      lastFrameDataUri = item.url;
+    }
+  }
+
+  const aspectRatio =
+    (typeof params?.ratio === "string" ? params.ratio : undefined) ??
+    (typeof parameters?.ratio === "string" ? parameters.ratio : undefined);
+  const resolution =
+    (typeof params?.resolution === "string" ? params.resolution : undefined) ??
+    (typeof parameters?.resolution === "string"
+      ? parameters.resolution
+      : undefined);
+  const durationSeconds =
+    typeof params?.duration === "number"
+      ? params.duration
+      : typeof parameters?.duration === "number"
+        ? parameters.duration
+        : undefined;
+  const generateAudio =
+    typeof input?.audio === "boolean" ? input.audio : undefined;
+
+  return {
+    prompt,
+    firstFrameDataUri,
+    lastFrameDataUri,
+    aspectRatio,
+    resolution,
+    durationSeconds,
+    generateAudio,
+  };
+}
+
 async function defaultSubmit(
   job: Job,
   request: PreparedRequest,
 ): Promise<SubmitResult> {
-  const { baseUrl, apiKey } = getQwenCredentials();
   const req = request as Record<string, unknown>;
+
+  if (req.providerKind === "gemini") {
+    const providerId =
+      typeof req.providerId === "string" ? req.providerId : undefined;
+    const { apiKey, baseUrl } = getGeminiCredentials(providerId);
+
+    if (job.modality === "image") {
+      const generated = await geminiGenerateImage({
+        apiKey,
+        baseUrl,
+        model: job.modelId,
+        prompt: typeof req.prompt === "string" ? req.prompt : "",
+        referenceImages: Array.isArray(req.referenceImages)
+          ? (req.referenceImages as string[])
+          : undefined,
+        size: typeof req.size === "string" ? req.size : undefined,
+        n: typeof req.n === "number" ? req.n : undefined,
+      });
+      return {
+        kind: "sync",
+        source: { bytes: generated.bytes, mime: generated.mime },
+      };
+    }
+
+    if (job.modality === "audio") {
+      const ttsText =
+        typeof req.text === "string"
+          ? req.text
+          : typeof req.prompt === "string"
+            ? req.prompt
+            : "";
+      const speech = await geminiSynthesizeSpeech({
+        apiKey,
+        baseUrl,
+        model: job.modelId,
+        text: ttsText,
+        voice: typeof req.voice === "string" ? req.voice : undefined,
+      });
+      return {
+        kind: "sync",
+        source: { bytes: speech.bytes, mime: speech.mime },
+      };
+    }
+
+    const args = extractGeminiVideoArgs(req);
+    const { taskId } = await geminiSubmitVideoTask({
+      apiKey,
+      baseUrl,
+      model: job.modelId,
+      ...args,
+    });
+    return { kind: "async", taskId };
+  }
+
+  const { baseUrl, apiKey } = getQwenCredentials();
 
   if (job.modality === "video") {
     const body = (req.body ?? req) as Record<string, unknown>;
@@ -228,6 +399,17 @@ async function defaultSubmit(
 async function defaultPoll(job: Job): Promise<TaskStatusResult> {
   if (!job.externalTaskId) {
     throw new Error(`Cannot poll job ${job.id} without externalTaskId`);
+  }
+  const req = parseRequest(job.requestJson) as Record<string, unknown>;
+  if (req.providerKind === "gemini") {
+    const providerId =
+      typeof req.providerId === "string" ? req.providerId : undefined;
+    const { apiKey, baseUrl } = getGeminiCredentials(providerId);
+    return geminiGetVideoTaskStatus({
+      apiKey,
+      baseUrl,
+      taskId: job.externalTaskId,
+    });
   }
   const { baseUrl, apiKey } = getQwenCredentials();
   return getTaskStatus({
@@ -530,7 +712,19 @@ export class JobRunner {
         .run();
 
       try {
-        await persistResult(job, { url }, { download: this.deps.download });
+        const req = parseRequest(job.requestJson) as Record<string, unknown>;
+        const downloadFn =
+          req.providerKind === "gemini" && this.deps.download === defaultDownload
+            ? (targetUrl: string) => {
+                const providerId =
+                  typeof req.providerId === "string"
+                    ? req.providerId
+                    : undefined;
+                const { apiKey } = getGeminiCredentials(providerId);
+                return downloadGeminiMediaUri(apiKey, targetUrl);
+              }
+            : this.deps.download;
+        await persistResult(job, { url }, { download: downloadFn });
       } catch (err) {
         const classified = classifyError(err);
         db.update(jobs)

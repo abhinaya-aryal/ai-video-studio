@@ -13,12 +13,10 @@ The app also contains a complete in-site manual. Press `?` (or use **How it work
 
 ```bash
 bun install
-cp .env.example .env.local
-# Edit .env.local and add QWEN_API_KEY
 bun run dev
 ```
 
-Open `http://localhost:3000`. Configuration is read lazily on the server, so restart the dev server after editing `.env.local`. Project media is written to `~/projects/<slug>/` by default; set `PROJECTS_DIR` to change it. Before generating, open **Settings → Models**, press **Sync models**, then choose a model per role or turn on Auto.
+Open `http://localhost:3000`. No `.env.local` file is required: open **Settings → Providers** to add your API keys (QwenCloud for video/image/audio, plus optional Google Gemini, Groq, OpenRouter, or custom OpenAI-compatible providers for text) and configure workspace settings directly in the UI. Keys are stored locally in owner-only `data/credentials.json` (`0600`, gitignored, never in SQLite). Then open **Settings → Models** to sync Qwen models and assign a provider + model to each role (for example, Gemini `gemini-2.5-flash` for **Prompt polish**). Optional environment variables below still work as fallbacks.
 
 ## Commands
 

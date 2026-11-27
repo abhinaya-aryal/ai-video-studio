@@ -1,14 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Boxes, Loader2, Plus, RefreshCw, Trash2, Wand2 } from "lucide-react";
+import { Boxes, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type { CustomModelModality } from "@/db/schema";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -26,19 +24,32 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-const MODALITIES: CustomModelModality[] = ["video", "image", "audio", "text"];
-const FAMILIES = ["wan3", "wan2.7", "qwen-image", "qwen-tts", "text"];
-
 const ROLES = [
-  { slot: "text_refine", label: "Story refine", modality: "text" },
-  { slot: "text_polish", label: "Prompt polish", modality: "text" },
-  { slot: "image", label: "Images", modality: "image" },
-  { slot: "video", label: "Video", modality: "video" },
-  { slot: "audio", label: "Voiceover", modality: "audio" },
+  {
+    key: "text",
+    slots: ["text_refine", "text_polish"] as const,
+    label: "Text (Refine & Polish)",
+    modality: "text",
+  },
+  {
+    key: "image",
+    slots: ["image"] as const,
+    label: "Images",
+    modality: "image",
+  },
+  {
+    key: "video",
+    slots: ["video"] as const,
+    label: "Video",
+    modality: "video",
+  },
+  {
+    key: "audio",
+    slots: ["audio"] as const,
+    label: "Voiceover",
+    modality: "audio",
+  },
 ] as const;
-
-const PRESETS = ["quality", "balanced", "economy"] as const;
-type Preset = (typeof PRESETS)[number];
 
 interface RegistryModel {
   id: string;
@@ -47,6 +58,9 @@ interface RegistryModel {
   modality: string;
   family: string;
   source: "manual" | "discovered";
+  providerId?: string;
+  providerName?: string;
+  providerKind?: "qwen" | "gemini" | "openai_compat";
   available: boolean;
   ignored: boolean;
   capabilitiesEdited: boolean;
@@ -60,11 +74,12 @@ interface SelectionRow {
   modelId: string | null;
 }
 
-interface ResolvedRow {
-  slot: string;
-  modelId: string | null;
-  source: string;
-  reason: string;
+interface RoleProviderBindings {
+  text_refine?: { providerId: string; modelId?: string };
+  text_polish?: { providerId: string; modelId?: string };
+  image?: { providerId: string; modelId?: string };
+  video?: { providerId: string; modelId?: string };
+  audio?: { providerId: string; modelId?: string };
 }
 
 interface UsageSummary {
@@ -73,23 +88,36 @@ interface UsageSummary {
   topModels: Array<{ modelId: string; totalTokens: number; events: number }>;
 }
 
+const EXT_VALUE_PREFIX = "ext::";
+
+function encodeExternalSelection(providerId: string, modelId: string): string {
+  return `${EXT_VALUE_PREFIX}${providerId}::${modelId}`;
+}
+
+function decodeExternalSelection(
+  value: string,
+): { providerId: string; modelId: string } | null {
+  if (!value.startsWith(EXT_VALUE_PREFIX)) return null;
+  const rest = value.slice(EXT_VALUE_PREFIX.length);
+  const sep = rest.indexOf("::");
+  if (sep === -1) return null;
+  return {
+    providerId: rest.slice(0, sep),
+    modelId: rest.slice(sep + 2),
+  };
+}
+
 export default function ModelsPage() {
   const [models, setModels] = useState<RegistryModel[]>([]);
+  const [externalModels, setExternalModels] = useState<RegistryModel[]>([]);
   const [selections, setSelections] = useState<SelectionRow[]>([]);
-  const [resolved, setResolved] = useState<ResolvedRow[]>([]);
-  const [autoPreset, setAutoPreset] = useState<Preset>("balanced");
+  const [roleProviders, setRoleProviders] = useState<RoleProviderBindings>({});
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [savingSlot, setSavingSlot] = useState<string | null>(null);
-
-  const [modelId, setModelId] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [modality, setModality] = useState<CustomModelModality>("video");
-  const [family, setFamily] = useState("wan3");
-  const [savingModel, setSavingModel] = useState(false);
+  const [savingRole, setSavingRole] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<RegistryModel | null>(null);
   const [editorJson, setEditorJson] = useState("");
@@ -98,18 +126,24 @@ export default function ModelsPage() {
   const applyPayload = useCallback(
     (data: {
       models?: RegistryModel[];
+      externalModels?: RegistryModel[];
       selections?: SelectionRow[];
-      resolved?: ResolvedRow[];
-      autoPreset?: Preset;
+      roleProviders?: RoleProviderBindings;
       lastSyncedAt?: number | null;
       syncWarning?: string | null;
     }) => {
       if (Array.isArray(data.models)) setModels(data.models);
+      if (Array.isArray(data.externalModels)) {
+        setExternalModels(data.externalModels);
+      }
       if (Array.isArray(data.selections)) setSelections(data.selections);
-      if (Array.isArray(data.resolved)) setResolved(data.resolved);
-      if (data.autoPreset) setAutoPreset(data.autoPreset);
-      setLastSyncedAt(data.lastSyncedAt ?? null);
-      setSyncWarning(data.syncWarning ?? null);
+      if (data.roleProviders) setRoleProviders(data.roleProviders);
+      if (data.lastSyncedAt !== undefined) {
+        setLastSyncedAt(data.lastSyncedAt ?? null);
+      }
+      if (data.syncWarning !== undefined) {
+        setSyncWarning(data.syncWarning ?? null);
+      }
     },
     [],
   );
@@ -155,9 +189,9 @@ export default function ModelsPage() {
     };
   }, [applyPayload, fetchPayload]);
 
-  const resolvedBySlot = useMemo(
-    () => new Map(resolved.map((row) => [row.slot, row])),
-    [resolved],
+  const allModels = useMemo(
+    () => [...models, ...externalModels],
+    [models, externalModels],
   );
 
   const handleSync = async () => {
@@ -168,9 +202,13 @@ export default function ModelsPage() {
       if (!res.ok) {
         throw new Error(data?.error?.message ?? "Model sync failed");
       }
-      toast.success(
-        `Synced ${data.total} models (${data.added} new, ${data.unavailable} unavailable)`,
-      );
+      if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        toast.warning(
+          `Synced ${data.total} models with warnings: ${data.warnings.join("; ")}`,
+        );
+      } else {
+        toast.success(`Synced ${data.total} models across all providers`);
+      }
       await loadModels();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Model sync failed");
@@ -179,18 +217,65 @@ export default function ModelsPage() {
     }
   };
 
-  const handleSlotChange = async (slot: string, value: string) => {
-    setSavingSlot(slot);
+  const handleRoleChange = async (
+    roleKey: string,
+    slots: readonly string[],
+    value: string,
+  ) => {
+    if (!value || value === "__none__") return;
+    setSavingRole(roleKey);
     try {
+      const ext = decodeExternalSelection(value);
+
+      if (ext) {
+        const binding = { providerId: ext.providerId, modelId: ext.modelId };
+        const rolePatch: Record<string, { providerId: string; modelId: string }> =
+          {};
+        for (const slot of slots) {
+          rolePatch[slot] = binding;
+        }
+        const res = await fetch("/api/settings/app", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roleProviders: rolePatch }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error?.message ?? "Failed to save selection");
+        }
+        setRoleProviders(data.roleProviders ?? {});
+        toast.success("Model selection saved");
+        return;
+      }
+
+      const hasExistingExtBinding = slots.some(
+        (slot) => Boolean(roleProviders[slot as keyof RoleProviderBindings]),
+      );
+      if (hasExistingExtBinding) {
+        const clearPatch: Record<string, null> = {};
+        for (const slot of slots) {
+          clearPatch[slot] = null;
+        }
+        const clearRes = await fetch("/api/settings/app", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roleProviders: clearPatch }),
+        });
+        if (clearRes.ok) {
+          const cleared = await clearRes.json();
+          setRoleProviders(cleared.roleProviders ?? {});
+        }
+      }
+
       const res = await fetch("/api/settings/models/selections", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          updates: [
-            value === "__auto__"
-              ? { slot, mode: "auto" }
-              : { slot, mode: "manual", modelId: value },
-          ],
+          updates: slots.map((slot) => ({
+            slot,
+            mode: "manual",
+            modelId: value,
+          })),
         }),
       });
       const data = await res.json();
@@ -204,97 +289,20 @@ export default function ModelsPage() {
         err instanceof Error ? err.message : "Failed to save selection",
       );
     } finally {
-      setSavingSlot(null);
+      setSavingRole(null);
     }
   };
 
-  const handleUseAutoForAll = async () => {
-    setSavingSlot("all");
-    try {
-      const res = await fetch("/api/settings/models/selections", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          updates: ROLES.map((role) => ({ slot: role.slot, mode: "auto" })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Failed to apply Auto");
-      }
-      applyPayload(data);
-      toast.success("Auto applied to every role");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to apply Auto");
-    } finally {
-      setSavingSlot(null);
-    }
-  };
-
-  const handlePresetChange = async (preset: Preset) => {
-    try {
-      const res = await fetch("/api/settings/models/preferences", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ autoPreset: preset }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Failed to save preset");
-      }
-      applyPayload({ ...data, autoPreset: data.autoPreset });
-      toast.success(`${preset} preset saved`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save preset");
-    }
-  };
-
-  const eligibleModels = useCallback(
-    (slot: string, slotModality: string) =>
+  const eligibleQwenModels = useCallback(
+    (roleKey: string, slotModality: string) =>
       models.filter((model) => {
         if (!model.available || model.ignored) return false;
         if (model.modality !== slotModality) return false;
-        if (slot === "audio" && model.ttsCapable === false) return false;
+        if (roleKey === "audio" && model.ttsCapable === false) return false;
         return true;
       }),
     [models],
   );
-
-  const handleAddCustomModel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!modelId.trim() || !displayName.trim()) {
-      toast.error("Model ID and display name are required");
-      return;
-    }
-
-    setSavingModel(true);
-    try {
-      const res = await fetch("/api/settings/models", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          modelId: modelId.trim(),
-          displayName: displayName.trim(),
-          modality,
-          family,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Failed to save custom model");
-      }
-      toast.success(`Saved model "${data.model.modelId}"`);
-      setModelId("");
-      setDisplayName("");
-      await loadModels();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to save custom model",
-      );
-    } finally {
-      setSavingModel(false);
-    }
-  };
 
   const handleDeleteModel = async (model: RegistryModel) => {
     try {
@@ -309,7 +317,7 @@ export default function ModelsPage() {
       toast.success(
         model.source === "discovered"
           ? "Model hidden from pickers"
-          : "Custom model removed",
+          : "Model removed",
       );
       await loadModels();
     } catch (err) {
@@ -402,7 +410,7 @@ export default function ModelsPage() {
             <span className="prism-text">Models</span>
           </>
         }
-        description="Every model your token can use. Choose a model per role, or let Auto pick a quality and cost balance."
+        description="All available models retrieved from your configured providers using your API keys. Explicitly choose a model for each task."
         actions={
           <div className="flex items-center gap-2">
             {lastSyncedAt && (
@@ -434,59 +442,69 @@ export default function ModelsPage() {
       )}
 
       <section className="panel space-y-4 p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Auto</h2>
-            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-              Auto resolves each role from the synced list. Quality spends
-              more, Economy spends less, Balanced sits in the middle. Every
-              role can still be overridden.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={savingSlot === "all"}
-            onClick={() => void handleUseAutoForAll()}
-          >
-            <Wand2 className="size-3.5" />
-            <span>Use Auto for all</span>
-          </Button>
-        </div>
-
-        <div className="inline-flex rounded-lg border border-border bg-surface-2/40 p-1">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => void handlePresetChange(preset)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
-                autoPreset === preset
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {preset}
-            </button>
-          ))}
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">
+            Task Model Assignment
+          </h2>
+          <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+            Explicitly choose a model from any configured provider for each
+            task. Projects and Quick Clip require your models to be selected
+            here.
+          </p>
         </div>
 
         <div className="space-y-2">
           {ROLES.map((role) => {
-            const selection = selections.find((row) => row.slot === role.slot);
-            const current = selection
-              ? selection.mode === "auto"
-                ? "__auto__"
-                : (selection.modelId ?? "__auto__")
-              : "__none__";
-            const effective = resolvedBySlot.get(role.slot);
-            const options = eligibleModels(role.slot, role.modality);
+            const isTextRole = role.key === "text";
+            const primarySlot = role.slots[0];
+            const extBinding = isTextRole
+              ? (roleProviders.text_polish?.modelId
+                  ? roleProviders.text_polish
+                  : roleProviders.text_refine)
+              : roleProviders[primarySlot as keyof RoleProviderBindings];
+            const extMatch =
+              extBinding && extBinding.modelId
+                ? externalModels.find(
+                    (m) =>
+                      m.providerId === extBinding.providerId &&
+                      m.modelId === extBinding.modelId,
+                  )
+                : undefined;
+
+            const selection = selections.find(
+              (row) => row.slot === primarySlot,
+            );
+            const manualModelId =
+              selection?.mode === "manual" ? selection.modelId : null;
+            const current =
+              extBinding && extBinding.modelId
+                ? encodeExternalSelection(
+                    extBinding.providerId,
+                    extBinding.modelId,
+                  )
+                : manualModelId || "__none__";
+
+            const qwenOptions = eligibleQwenModels(role.key, role.modality);
+            const extOptions = externalModels.filter((model) => {
+              if (!model.available || model.ignored) return false;
+              if (model.modality !== role.modality) return false;
+              if (role.key === "audio" && model.ttsCapable === false) {
+                return false;
+              }
+              return true;
+            });
+
+            const currentLabel =
+              current === "__none__"
+                ? "Select a model"
+                : extBinding && extBinding.modelId
+                  ? `${extBinding.modelId}${extMatch?.providerName ? ` · ${extMatch.providerName}` : ""}`
+                  : current;
 
             return (
               <div
-                key={role.slot}
-                className="grid gap-2 rounded-lg border border-border bg-surface-2/20 px-3 py-2.5 sm:grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
+                key={role.key}
+                className="grid gap-2 rounded-lg border border-border bg-surface-2/20 px-3 py-2.5 sm:grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
               >
                 <div className="text-xs font-medium text-foreground">
                   {role.label}
@@ -494,38 +512,49 @@ export default function ModelsPage() {
                 <Select
                   value={current}
                   onValueChange={(value) =>
-                    void handleSlotChange(role.slot, value ?? "")
+                    void handleRoleChange(role.key, role.slots, value ?? "")
                   }
-                  disabled={savingSlot === role.slot}
+                  disabled={savingRole === role.key}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue>
-                      {current === "__none__"
-                        ? "Select a model"
-                        : current === "__auto__"
-                          ? "Auto"
-                          : current}
-                    </SelectValue>
+                    <SelectValue>{currentLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__" disabled>
                       Select a model
                     </SelectItem>
-                    <SelectItem value="__auto__">Auto</SelectItem>
-                    {options.map((option) => (
-                      <SelectItem key={option.modelId} value={option.modelId}>
+                    {qwenOptions.map((option) => (
+                      <SelectItem
+                        key={`qwen:${option.modelId}`}
+                        value={option.modelId}
+                      >
                         {option.modelId}
+                        {option.providerName ? ` · ${option.providerName}` : ""}
+                      </SelectItem>
+                    ))}
+                    {extOptions.map((option) => (
+                      <SelectItem
+                        key={option.id}
+                        value={encodeExternalSelection(
+                          option.providerId!,
+                          option.modelId,
+                        )}
+                      >
+                        {option.modelId} · {option.providerName}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <div className="min-w-0 text-xs text-muted-foreground">
-                  {effective?.modelId ? (
+                  {extBinding && extBinding.modelId ? (
                     <span className="truncate">
-                      {effective.modelId} ({effective.source})
+                      {extBinding.modelId} (
+                      {extMatch?.providerName ?? extBinding.providerId})
                     </span>
+                  ) : manualModelId ? (
+                    <span className="truncate">{manualModelId}</span>
                   ) : (
-                    <span className="text-warning">Not resolved</span>
+                    <span className="text-warning">Not selected</span>
                   )}
                 </div>
               </div>
@@ -541,8 +570,7 @@ export default function ModelsPage() {
               Usage, last 7 days
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Token counts reported by the provider. Syncing models and opening
-              this page spend nothing.
+              Token counts reported by providers. Syncing models spends nothing.
             </p>
           </div>
           <Badge variant="outline" className="font-mono tabular-nums">
@@ -578,160 +606,100 @@ export default function ModelsPage() {
       <section className="panel space-y-5 p-6">
         <div>
           <h2 className="text-sm font-semibold text-foreground">
-            Synced models
+            Available Models ({allModels.length})
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Token models come from the provider. Manual models let you reach
-            IDs the token does not list.
+            All models retrieved from your configured providers. Press Sync
+            models above to refresh from every provider.
           </p>
         </div>
 
-        {models.length === 0 ? (
+        {allModels.length === 0 ? (
           <EmptyState
             icon={Boxes}
             title="No models yet"
-            description="Sync the token list, or add a model ID manually below."
+            description="Add a provider with your API key in Settings → Providers, then press Sync models."
             className="border-dashed bg-surface-2/20 py-8 shadow-none"
           />
         ) : (
           <div className="divide-y divide-border rounded-xl border border-border bg-surface-2/30">
-            {models.map((model) => (
-              <div
-                key={model.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
-              >
-                <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                  <span className="truncate font-mono text-xs font-medium text-foreground">
-                    {model.modelId}
-                  </span>
-                  <Badge variant="secondary" className="text-[11px]">
-                    {model.modality}
-                  </Badge>
-                  <Badge variant="outline" className="text-[11px]">
-                    {model.source === "discovered" ? "Token" : "Manual"}
-                  </Badge>
-                  {model.capabilitiesEdited && (
-                    <Badge variant="outline" className="text-[11px]">
-                      Edited rules
+            {allModels.map((model) => {
+              const isExternal =
+                model.providerKind === "gemini" ||
+                model.providerKind === "openai_compat";
+              return (
+                <div
+                  key={model.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+                >
+                  <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                    <span className="truncate font-mono text-xs font-medium text-foreground">
+                      {model.modelId}
+                    </span>
+                    {model.providerName && (
+                      <Badge variant="outline" className="text-[11px]">
+                        {model.providerName}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="text-[11px]">
+                      {model.modality}
                     </Badge>
-                  )}
-                  {!model.available && (
-                    <Badge variant="destructive" className="text-[11px]">
-                      Unavailable
-                    </Badge>
-                  )}
-                  {model.ignored && (
-                    <Badge variant="outline" className="text-[11px]">
-                      Hidden
-                    </Badge>
+                    {model.capabilitiesEdited && (
+                      <Badge variant="outline" className="text-[11px]">
+                        Edited rules
+                      </Badge>
+                    )}
+                    {!model.available && (
+                      <Badge variant="destructive" className="text-[11px]">
+                        Unavailable
+                      </Badge>
+                    )}
+                    {model.ignored && (
+                      <Badge variant="outline" className="text-[11px]">
+                        Hidden
+                      </Badge>
+                    )}
+                  </div>
+                  {!isExternal && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => openEditor(model)}
+                      >
+                        Rules
+                      </Button>
+                      {model.ignored ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => void handleUnhide(model)}
+                        >
+                          Unhide
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => void handleDeleteModel(model)}
+                          aria-label={`Remove ${model.modelId}`}
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => openEditor(model)}
-                  >
-                    Rules
-                  </Button>
-                  {model.ignored ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => void handleUnhide(model)}
-                    >
-                      Unhide
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => void handleDeleteModel(model)}
-                      aria-label={`Remove ${model.modelId}`}
-                      className="shrink-0 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
-
-        <form
-          onSubmit={handleAddCustomModel}
-          className="grid items-end gap-3 border-t border-border pt-5 sm:grid-cols-5"
-        >
-          <div className="space-y-1">
-            <label className="text-xs font-medium" htmlFor="cm-id">
-              Model ID
-            </label>
-            <Input
-              id="cm-id"
-              placeholder="wan3.5-video"
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium" htmlFor="cm-name">
-              Display Name
-            </label>
-            <Input
-              id="cm-name"
-              placeholder="Wan 3.5 Video"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Modality</label>
-            <Select
-              value={modality}
-              onValueChange={(v) => v && setModality(v as CustomModelModality)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>{modality}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {MODALITIES.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Family</label>
-            <Select value={family} onValueChange={(v) => v && setFamily(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue>{family}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {FAMILIES.map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {f}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button type="submit" disabled={savingModel} className="gap-1.5">
-            {savingModel ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Plus className="size-4" />
-            )}
-            <span>Add Model</span>
-          </Button>
-        </form>
       </section>
 
       <Dialog

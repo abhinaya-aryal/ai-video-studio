@@ -9,9 +9,8 @@ import {
   parseJsonBody,
   requireProject,
 } from "@/lib/api/route-helpers";
-import { getTextChat } from "@/lib/providers/text";
+import { getTextChat, resolveTextTarget } from "@/lib/providers/text";
 import { getConfig } from "@/lib/config";
-import { resolveSlotModel } from "@/lib/providers/model-selection";
 import { recordUsage } from "@/lib/usage/record";
 import {
   refineStoryAndScenes,
@@ -78,17 +77,14 @@ export async function POST(req: Request, context: RouteContext) {
 
     const styleBible = input.styleBible ?? project.styleBible;
     const cfg = getConfig();
-    const textModel =
-      cfg.textProvider === "openai_compat"
-        ? (cfg.openaiCompat?.model ?? "openai-compat")
-        : resolveSlotModel(db, "text_refine").modelId;
+    const target = resolveTextTarget(cfg, db, "text_refine");
     const chat = getTextChat(cfg, fetch, {
       role: "text_refine",
       onUsage: (usage) =>
         recordUsage(db, {
           projectId: id,
           modality: "text",
-          modelId: textModel,
+          modelId: target.modelId,
           ...usage,
         }),
     });

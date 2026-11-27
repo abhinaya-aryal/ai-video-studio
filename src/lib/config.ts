@@ -1,6 +1,14 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
+import {
+  type RoleProviderBinding,
+  type StoredProvider,
+  readCredentialsFile,
+  readSettingsFile,
+  settingsFilePath,
+} from "@/lib/settings/store";
 
 export type QwenKeyType = "token_plan" | "standard";
 export type QwenRegion = "ap-southeast-1" | "cn-beijing";
@@ -22,6 +30,14 @@ export interface AppConfig {
     apiKey?: string;
     model: string;
   };
+  providers?: StoredProvider[];
+  roleProviders?: {
+    text_refine?: RoleProviderBinding;
+    text_polish?: RoleProviderBinding;
+    image?: RoleProviderBinding;
+    video?: RoleProviderBinding;
+    audio?: RoleProviderBinding;
+  };
   jobs: {
     maxConcurrent: number;
     pollIntervalMs: number;
@@ -35,7 +51,7 @@ function emptyToUndefined(value: string | undefined): string | undefined {
 }
 
 /** Expand a leading `~` to the current user's home directory. */
-function expandHome(value: string): string {
+export function expandHome(value: string): string {
   if (value === "~") return os.homedir();
   if (value.startsWith("~/") || value.startsWith("~\\")) {
     return path.join(os.homedir(), value.slice(2));
@@ -87,7 +103,7 @@ const EnvSchema = z
     }
   });
 
-function resolveQwenKeyType(
+export function resolveQwenKeyType(
   configured: "auto" | QwenKeyType,
   apiKey?: string,
 ): QwenKeyType {
@@ -95,7 +111,11 @@ function resolveQwenKeyType(
   return apiKey?.startsWith("sk-sp-") ? "token_plan" : "standard";
 }
 
-/** Lazily read and validate environment configuration. */
+/**
+ * Lazily read and validate configuration, layering UI-managed
+ * `${DATA_DIR}/settings.json` and `${DATA_DIR}/credentials.json`
+ * over environment variable fallbacks.
+ */
 export function getConfig(): AppConfig {
   const parsed = EnvSchema.parse({
     DATA_DIR: emptyToUndefined(process.env.DATA_DIR),
@@ -116,6 +136,31 @@ export function getConfig(): AppConfig {
   });
 
   const cwd = process.cwd();
+  const dataDir = path.resolve(cwd, expandHome(parsed.DATA_DIR));
+  const stored = readSettingsFile(dataDir);
+  const creds = readCredentialsFile(dataDir);
+
+  const projectsDirRaw = stored.app.projectsDir ?? parsed.PROJECTS_DIR;
+  const maxConcurrent = stored.app.maxConcurrentJobs ?? parsed.MAX_CONCURRENT_JOBS;
+  const pollIntervalMs =
+    stored.app.jobPollIntervalMs ?? parsed.JOB_POLL_INTERVAL_MS;
+
+  const uiManaged = fs.existsSync(settingsFilePath(dataDir));
+  const uiQwen = stored.providers.find((p) => p.kind === "qwen" && p.enabled);
+  const qwenApiKey = uiManaged
+    ? uiQwen
+      ? creds[uiQwen.id]
+      : undefined
+    : parsed.QWEN_API_KEY;
+  const qwenKeyTypeRaw = uiQwen?.keyType ?? parsed.QWEN_KEY_TYPE;
+  const qwenRegion = uiQwen?.region ?? parsed.QWEN_REGION;
+  const qwenWorkspaceId = uiManaged
+    ? uiQwen?.workspaceId
+    : parsed.QWEN_WORKSPACE_ID;
+  const qwenBaseUrlOverride = uiManaged
+    ? uiQwen?.baseUrl
+    : parsed.QWEN_BASE_URL;
+
   const openaiCompat =
     parsed.OPENAI_COMPAT_BASE_URL && parsed.OPENAI_COMPAT_MODEL
       ? {
@@ -126,20 +171,22 @@ export function getConfig(): AppConfig {
       : undefined;
 
   return {
-    dataDir: path.resolve(cwd, expandHome(parsed.DATA_DIR)),
-    projectsDir: path.resolve(cwd, expandHome(parsed.PROJECTS_DIR)),
+    dataDir,
+    projectsDir: path.resolve(cwd, expandHome(projectsDirRaw)),
     qwen: {
-      apiKey: parsed.QWEN_API_KEY,
-      keyType: resolveQwenKeyType(parsed.QWEN_KEY_TYPE, parsed.QWEN_API_KEY),
-      region: parsed.QWEN_REGION,
-      workspaceId: parsed.QWEN_WORKSPACE_ID,
-      baseUrlOverride: parsed.QWEN_BASE_URL,
+      apiKey: qwenApiKey,
+      keyType: resolveQwenKeyType(qwenKeyTypeRaw, qwenApiKey),
+      region: qwenRegion,
+      workspaceId: qwenWorkspaceId,
+      baseUrlOverride: qwenBaseUrlOverride,
     },
     textProvider: parsed.TEXT_PROVIDER,
     openaiCompat,
+    providers: stored.providers,
+    roleProviders: stored.roleProviders,
     jobs: {
-      maxConcurrent: parsed.MAX_CONCURRENT_JOBS,
-      pollIntervalMs: parsed.JOB_POLL_INTERVAL_MS,
+      maxConcurrent,
+      pollIntervalMs,
     },
   };
 }

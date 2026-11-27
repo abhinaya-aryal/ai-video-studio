@@ -17,7 +17,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" data-theme={DEFAULT_THEME} className="h-full antialiased">
-      <body className="min-h-full bg-background text-foreground font-sans">
+      <body
+        suppressHydrationWarning
+        className="min-h-full bg-background text-foreground font-sans"
+      >
         <TooltipProvider>
           <AmbientBackdrop />
           <div className="relative z-0 flex min-h-screen flex-col md:flex-row">

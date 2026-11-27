@@ -26,8 +26,12 @@ export async function GET() {
       : { ok: true as const };
     const db = getDb();
 
+    const hasAnyConfiguredProvider =
+      Boolean(cfg.qwen.apiKey) ||
+      (cfg.providers ?? []).some((p) => p.enabled);
+
     return apiOk({
-      configured: Boolean(cfg.qwen.apiKey),
+      configured: hasAnyConfiguredProvider,
       qwen: {
         hasApiKey: Boolean(cfg.qwen.apiKey),
         maskedApiKey: cfg.qwen.apiKey ? maskApiKey(cfg.qwen.apiKey) : "",
@@ -52,6 +56,12 @@ export async function GET() {
             model: cfg.openaiCompat.model,
           }
         : null,
+      roleProviders: cfg.roleProviders,
+      app: {
+        projectsDir: cfg.projectsDir,
+        maxConcurrentJobs: cfg.jobs.maxConcurrent,
+        jobPollIntervalMs: cfg.jobs.pollIntervalMs,
+      },
       jobs: cfg.jobs,
     });
   } catch (err) {

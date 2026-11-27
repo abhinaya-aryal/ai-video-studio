@@ -163,18 +163,21 @@ export function Stage3Video({
         const res = await fetch("/api/settings/models", { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-        if (active && Array.isArray(data.models)) {
+        if (active) {
+          const combined: ModelCapability[] = [
+            ...(Array.isArray(data.models) ? data.models : []),
+            ...(Array.isArray(data.externalModels) ? data.externalModels : []),
+          ];
           setVideoModels(
-            data.models.filter(
-              (m: ModelCapability) => m.modality === "video",
-            ),
+            combined.filter((m: ModelCapability) => m.modality === "video"),
           );
+          const extVideo = data.roleProviders?.video?.modelId ?? null;
           const resolved = Array.isArray(data.resolved)
             ? data.resolved.find(
                 (entry: { slot?: string }) => entry.slot === "video",
               )
             : undefined;
-          setResolvedVideoModel(resolved?.modelId ?? null);
+          setResolvedVideoModel(extVideo ?? resolved?.modelId ?? null);
         }
       } catch {
         // Fallback to DEFAULT_VIDEO_CAPABILITY

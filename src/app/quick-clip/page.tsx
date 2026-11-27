@@ -19,6 +19,10 @@ import {
   MediaModePicker,
   type UploadedMediaItem,
 } from "@/components/MediaModePicker";
+import {
+  ModelSetupModal,
+  getMissingExplicitModels,
+} from "@/components/ModelSetupModal";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,6 +87,11 @@ export default function QuickClipPage() {
   const [polishing, setPolishing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [missingTextModel, setMissingTextModel] = useState<string[]>([]);
+  const [missingVideoModel, setMissingVideoModel] = useState<string[]>([]);
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
+  const [setupModalMissing, setSetupModalMissing] = useState<string[]>([]);
+  const [setupModalAction, setSetupModalAction] = useState("generate a clip");
 
   const [quickClipProjectId, setQuickClipProjectId] = useState<string | null>(
     null,
@@ -103,12 +112,34 @@ export default function QuickClipPage() {
           projectsRes.json(),
         ]);
 
-        const vids: ModelCapability[] = Array.isArray(modelsData.models)
-          ? modelsData.models.filter(
-              (m: ModelCapability) => m.modality === "video",
-            )
-          : [];
+        const allCandidateModels: ModelCapability[] = [
+          ...(Array.isArray(modelsData.models) ? modelsData.models : []),
+          ...(Array.isArray(modelsData.externalModels)
+            ? modelsData.externalModels
+            : []),
+        ];
+        const vids: ModelCapability[] = allCandidateModels.filter(
+          (m: ModelCapability) => m.modality === "video",
+        );
         setVideoModels(vids);
+
+        const missingText = getMissingExplicitModels(modelsData, ["text"]);
+        const missingVideo = getMissingExplicitModels(modelsData, ["video"]);
+        setMissingTextModel(missingText);
+        setMissingVideoModel(missingVideo);
+
+        const extVideo = modelsData.roleProviders?.video?.modelId ?? null;
+        const manualVideo =
+          extVideo ??
+          (Array.isArray(modelsData.selections)
+            ? modelsData.selections.find(
+                (s: { slot?: string; mode?: string; modelId?: string | null }) =>
+                  s.slot === "video" && s.mode === "manual" && s.modelId,
+              )?.modelId
+            : null);
+        if (manualVideo && vids.some((v) => v.modelId === manualVideo)) {
+          setModelId(manualVideo);
+        }
 
         const quickProject = (
           Array.isArray(projectsData.projects) ? projectsData.projects : []
@@ -269,6 +300,12 @@ export default function QuickClipPage() {
   };
 
   const handlePolish = async () => {
+    if (missingTextModel.length > 0) {
+      setSetupModalMissing(missingTextModel);
+      setSetupModalAction("polish prompts");
+      setSetupModalOpen(true);
+      return;
+    }
     if (!prompt.trim()) {
       toast.error("Enter a prompt before polishing");
       return;
@@ -317,12 +354,20 @@ export default function QuickClipPage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!modelId && missingVideoModel.length > 0) {
+      setSetupModalMissing(missingVideoModel);
+      setSetupModalAction("generate a Quick Clip");
+      setSetupModalOpen(true);
+      return;
+    }
     if (!prompt.trim()) {
       toast.error("Please enter a prompt");
       return;
     }
     if (!modelId) {
-      setSubmitError("Choose a video model before generating a clip.");
+      setSetupModalMissing(["Video"]);
+      setSetupModalAction("generate a Quick Clip");
+      setSetupModalOpen(true);
       return;
     }
     if (!modeState.canSubmit) {
@@ -768,6 +813,13 @@ export default function QuickClipPage() {
           </section>
         </aside>
       </div>
+
+      <ModelSetupModal
+        open={setupModalOpen}
+        onOpenChange={setSetupModalOpen}
+        missingTasks={setupModalMissing}
+        actionLabel={setupModalAction}
+      />
     </div>
   );
 }

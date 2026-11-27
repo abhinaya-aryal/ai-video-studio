@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { getDb } from "@/db";
 import {
   RouteError,
   apiOk,
@@ -13,8 +12,10 @@ import {
   toPublicJob,
 } from "@/lib/api/route-helpers";
 import { enqueueJob } from "@/lib/jobs/runner";
-import { getModelCapabilities } from "@/lib/providers/catalog";
-import { resolveSlotModel } from "@/lib/providers/model-selection";
+import {
+  prepareGeminiImageDataUri,
+  resolveMediaTarget,
+} from "@/lib/providers/media";
 import { resolveElementImagePrompt } from "@/lib/studio/element-image";
 import { stableSeed } from "@/lib/studio/seed";
 
@@ -33,10 +34,13 @@ export async function POST(req: Request) {
     const project = requireProject(input.projectId);
     const element = requireElement(input.projectId, input.elementId);
 
-    const modelId = resolveSlotModel(getDb(), "image", {
-      explicitModelId: input.modelId,
-    }).modelId;
-    const cap = getModelCapabilities(modelId, getCustomModelRows());
+    const target = resolveMediaTarget(
+      "image",
+      { explicitModelId: input.modelId },
+      getCustomModelRows(),
+    );
+    const modelId = target.modelId;
+    const cap = target.capabilities;
     if (cap.modality !== "image") {
       throw new RouteError(
         "VALIDATION_ERROR",
@@ -58,7 +62,11 @@ export async function POST(req: Request) {
     const cappedRefs = refPaths.slice(0, maxRefs);
 
     const referenceImages = await Promise.all(
-      cappedRefs.map((p) => prepareProjectImagePath(p, modelId, cappedRefs.length)),
+      cappedRefs.map((p) =>
+        target.providerKind === "gemini"
+          ? prepareGeminiImageDataUri(p)
+          : prepareProjectImagePath(p, modelId, cappedRefs.length),
+      ),
     );
     const needsOssHeader = referenceImages.some((u) => u.startsWith("oss://"));
 
@@ -70,6 +78,9 @@ export async function POST(req: Request) {
       modelId,
       request: {
         modality: "image",
+        ...(target.providerKind === "gemini"
+          ? { providerKind: "gemini" as const, providerId: target.providerId }
+          : {}),
         prompt: basePrompt,
         referenceImages,
         size: input.size,

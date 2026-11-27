@@ -14,6 +14,10 @@ import {
   type RefineWarning,
   Stage1Story,
 } from "@/components/studio/Stage1Story";
+import {
+  ModelSetupModal,
+  getMissingExplicitModels,
+} from "@/components/ModelSetupModal";
 import { Stage2Elements } from "@/components/studio/Stage2Elements";
 import { Stage3Video } from "@/components/studio/Stage3Video";
 import { StageRail } from "@/components/studio/StageRail";
@@ -51,6 +55,8 @@ export function StageTabs({ projectId }: StageTabsProps) {
     files: [],
   });
   const [warnings, setWarnings] = useState<RefineWarning[]>([]);
+  const [missingModels, setMissingModels] = useState<string[]>([]);
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,10 +97,14 @@ export function StageTabs({ projectId }: StageTabsProps) {
     let active = true;
     (async () => {
       try {
-        const res = await fetch(`/api/projects/${projectId}`, {
-          cache: "no-store",
-        });
+        const [res, modelsRes] = await Promise.all([
+          fetch(`/api/projects/${projectId}`, {
+            cache: "no-store",
+          }),
+          fetch("/api/settings/models", { cache: "no-store" }),
+        ]);
         const data = await res.json();
+        const modelsData = modelsRes.ok ? await modelsRes.json() : null;
         if (!res.ok) {
           throw new Error(data?.error?.message ?? "Failed to load project");
         }
@@ -111,6 +121,17 @@ export function StageTabs({ projectId }: StageTabsProps) {
                 }
               : { dir: "", files: [] },
           );
+          if (modelsData) {
+            const missing = getMissingExplicitModels(modelsData, [
+              "text",
+              "image",
+              "video",
+            ]);
+            setMissingModels(missing);
+            if (missing.length > 0) {
+              setSetupModalOpen(true);
+            }
+          }
           setError(null);
         }
       } catch (err) {
@@ -281,6 +302,13 @@ export function StageTabs({ projectId }: StageTabsProps) {
           onBackStage={() => setActiveTab("stage2")}
         />
       </TabsContent>
+
+      <ModelSetupModal
+        open={setupModalOpen}
+        onOpenChange={setSetupModalOpen}
+        missingTasks={missingModels}
+        actionLabel="edit or generate in this project"
+      />
     </Tabs>
   );
 }

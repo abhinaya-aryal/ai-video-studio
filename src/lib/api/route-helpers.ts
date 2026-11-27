@@ -103,7 +103,7 @@ export function handleRouteError(err: unknown): NextResponse {
   if (err instanceof ProviderHttpError) {
     const status =
       err.httpStatus >= 400 && err.httpStatus < 600 ? err.httpStatus : 502;
-    return apiError(err.code, err.userMessage, status);
+    return apiError(err.code, err.message, status);
   }
 
   const message =
