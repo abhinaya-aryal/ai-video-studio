@@ -141,6 +141,9 @@ export function Stage3Video({
   const [generatingSceneId, setGeneratingSceneId] = useState<string | null>(
     null,
   );
+  const [generatingKeyframeKey, setGeneratingKeyframeKey] = useState<
+    string | null
+  >(null);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [videoModels, setVideoModels] = useState<ModelCapability[]>([]);
   const [resolvedVideoModel, setResolvedVideoModel] = useState<string | null>(
@@ -225,6 +228,24 @@ export function Stage3Video({
       const existing = map.get(job.sceneId);
       if (!existing || job.createdAt > existing.createdAt) {
         map.set(job.sceneId, job);
+      }
+    }
+    return map;
+  }, [jobs]);
+
+  const latestKeyframeJobByKey = useMemo(() => {
+    const map = new Map<string, Job>();
+    for (const job of jobs) {
+      if (
+        !job.sceneId ||
+        (job.role !== "keyframe_first" && job.role !== "keyframe_last")
+      ) {
+        continue;
+      }
+      const key = `${job.sceneId}:${job.role}`;
+      const existing = map.get(key);
+      if (!existing || job.createdAt > existing.createdAt) {
+        map.set(key, job);
       }
     }
     return map;
@@ -316,6 +337,46 @@ export function Stage3Video({
       );
     } finally {
       setGeneratingSceneId(null);
+    }
+  };
+
+  const handleGenerateKeyframe = async (
+    sceneId: string,
+    position: "first" | "last",
+  ) => {
+    const key = `${sceneId}:${position}`;
+    setGeneratingKeyframeKey(key);
+    try {
+      const res = await fetch("/api/generate/keyframe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: project.id,
+          sceneId,
+          position,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message ?? "Failed to queue keyframe");
+      }
+      if (
+        Array.isArray(data.droppedElements) &&
+        data.droppedElements.length > 0
+      ) {
+        toast.warning(
+          `Keyframe queued; dropped extra elements: ${data.droppedElements.join(", ")}`,
+        );
+      } else {
+        toast.success(`Queued ${position} frame`);
+      }
+      await onRefreshJobs();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to queue keyframe",
+      );
+    } finally {
+      setGeneratingKeyframeKey(null);
     }
   };
 
@@ -674,6 +735,18 @@ export function Stage3Video({
             const sceneTakes = takesByScene.get(scene.id) ?? [];
             const droppedElements = droppedByScene[scene.id] ?? [];
             const isGenerating = generatingSceneId === scene.id;
+            const firstKfJob =
+              latestKeyframeJobByKey.get(`${scene.id}:keyframe_first`) ?? null;
+            const lastKfJob =
+              latestKeyframeJobByKey.get(`${scene.id}:keyframe_last`) ?? null;
+            const firstKfActive =
+              firstKfJob !== null &&
+              firstKfJob.status !== "READY" &&
+              firstKfJob.status !== "FAILED";
+            const lastKfActive =
+              lastKfJob !== null &&
+              lastKfJob.status !== "READY" &&
+              lastKfJob.status !== "FAILED";
 
             return (
               <article
@@ -795,10 +868,105 @@ export function Stage3Video({
                   }
                 />
 
+                {scene.videoMode === "first_last_frame" && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-2/40 px-3 py-2.5 text-xs">
+                    <span className="text-muted-foreground">
+                      Need generated start/end stills for this shot?
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {firstKfJob && (
+                        <div className="flex items-center gap-1">
+                          <JobStatusBadge
+                            status={firstKfJob.status}
+                            errorMessage={firstKfJob.errorMessage}
+                          />
+                          {firstKfJob.status === "FAILED" && (
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => void onRetryJob(firstKfJob.id)}
+                              title="Retry first frame"
+                            >
+                              <RotateCcw className="size-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          generatingKeyframeKey === `${scene.id}:first` ||
+                          firstKfActive
+                        }
+                        onClick={() =>
+                          void handleGenerateKeyframe(scene.id, "first")
+                        }
+                        className="gap-1.5"
+                      >
+                        {generatingKeyframeKey === `${scene.id}:first` ||
+                        firstKfActive ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="size-3.5" />
+                        )}
+                        {firstFrameItem
+                          ? "Regenerate First Frame"
+                          : "Generate First Frame"}
+                      </Button>
+
+                      {lastKfJob && (
+                        <div className="flex items-center gap-1">
+                          <JobStatusBadge
+                            status={lastKfJob.status}
+                            errorMessage={lastKfJob.errorMessage}
+                          />
+                          {lastKfJob.status === "FAILED" && (
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => void onRetryJob(lastKfJob.id)}
+                              title="Retry last frame"
+                            >
+                              <RotateCcw className="size-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          generatingKeyframeKey === `${scene.id}:last` ||
+                          lastKfActive
+                        }
+                        onClick={() =>
+                          void handleGenerateKeyframe(scene.id, "last")
+                        }
+                        className="gap-1.5"
+                      >
+                        {generatingKeyframeKey === `${scene.id}:last` ||
+                        lastKfActive ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="size-3.5" />
+                        )}
+                        {lastFrameItem
+                          ? "Regenerate Last Frame"
+                          : "Generate Last Frame"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {!modeState.canSubmit && (
                   <div className="text-xs text-warning">
                     {scene.videoMode === "first_last_frame"
-                      ? "First/last frame mode requires an active First Keyframe (generate one in Stage 2 or switch mode)."
+                      ? "First/last frame mode requires a First Frame — upload one above, generate one here, or switch to Omni-Reference."
                       : "Current mode and attached media cannot be combined."}
                   </div>
                 )}

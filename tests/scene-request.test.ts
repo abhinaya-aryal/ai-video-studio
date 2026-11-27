@@ -280,7 +280,7 @@ describe("buildSceneVideoRequest", () => {
     );
   });
 
-  it("throws a helpful Stage 2 keyframe error when first_last_frame mode has no keyframe asset", async () => {
+  it("throws a helpful Stage 3 keyframe error when first_last_frame mode has no keyframe asset", async () => {
     const scene = makeScene({
       videoMode: "first_last_frame",
       activeKeyframeFirstAssetId: null,
@@ -292,7 +292,7 @@ describe("buildSceneVideoRequest", () => {
       buildSceneVideoRequest(scene, [], project, wan3Cap, {
         prepareImage: async (p) => p,
       }),
-    ).rejects.toThrow(/Stage 2/i);
+    ).rejects.toThrow(/Stage 3/i);
   });
 });
 

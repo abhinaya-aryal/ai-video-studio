@@ -208,7 +208,14 @@ async function runJsonWithRepair<T>({
     },
   ];
 
-  const secondRaw = await chat(repairMessages, callOptions);
+  const repairOptions = firstAttempt.error.startsWith("Invalid JSON:")
+    ? {
+        responseFormat: { type: "json_object" as const },
+        ...(temperature !== undefined ? { temperature } : {}),
+      }
+    : callOptions;
+
+  const secondRaw = await chat(repairMessages, repairOptions);
   const secondAttempt = validateAgainstSchema(secondRaw, schema);
   if (secondAttempt.ok) {
     return secondAttempt.data;
@@ -244,7 +251,7 @@ export async function refineStoryAndScenes({
     '- "scenes": non-empty [{ "title": string, "linkedElementNames": string[] (exact names from elements[]), "visualPrompt": string (style, lighting, location, action, visible text or "No text."), "cameraDirection": string (shot size + camera term), ' +
       `"audioMode": ${AUDIO_MODES.map((m) => `"${m}"`).join(" | ")}, ` +
       '"audioScript": string (matches audioMode; empty only when silent), "duration": integer 2..30, ' +
-      `"videoMode": ${VIDEO_MODES.map((m) => `"${m}"`).join(" | ")} }]`,
+      `"videoMode": ${VIDEO_MODES.map((m) => `"${m}"`).join(" | ")} (prefer "omni_reference" when elements are linked, "text_to_video" when none are linked; use "first_last_frame" only for exact start-to-end transitions) }]`,
     "",
     buildPromptFramework(),
   ].join("\n");
@@ -315,7 +322,6 @@ export async function polishPrompt({
     schema: PolishedPromptSchema,
     chat,
     taskLabel: "Prompt polish",
-    maxTokens: 700,
     temperature: 0.4,
   });
 }

@@ -27,8 +27,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       "AI Video Studio turns a rough idea into a storyboard, a consistent element library, and generated clips, then mirrors every asset into your project folder as flat files for Kdenlive. Everything runs locally against your own API keys, and every screen in the app is covered by this manual.",
     bullets: [
       "Stage 1 shapes the story, style, element roster, and scene breakdown.",
-      "Stage 2 locks the look with element images, keyframes, and voiceover.",
-      "Stage 3 generates clips, manages takes, and mirrors every asset into the project folder.",
+      "Stage 2 locks the look with element images and optional voiceover.",
+      "Stage 3 generates clips (with on-demand keyframes for first/last-frame shots), manages takes, and mirrors every asset into the project folder.",
     ],
     details: [
       {
@@ -37,7 +37,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "Storyboard Studio",
-        text: "Opening a project shows three tabs: Story & Scenes, Elements & Keyframes, and Video & Assets. You can move between them at any time; nothing is lost when you switch.",
+        text: "Opening a project shows three tabs: Story & Scenes, Elements & Audio, and Video & Assets. You can move between them at any time; nothing is lost when you switch.",
       },
       {
         label: "Quick Clip",
@@ -430,44 +430,40 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
         text: "A failed image job exposes a retry button on the card. Retries reuse the same parameters and replace the previous image on success.",
       },
     ],
-    where: "Project → Elements & Keyframes → Element Images",
+    where: "Project → Elements & Audio → Element Images",
     href: "/",
     cta: "Open a project",
   },
   {
     id: "keyframes",
     group: "Build",
-    title: "Stage 2 · First and last keyframes",
+    title: "Stage 3 · On-demand first and last keyframes",
     summary:
-      "Keyframes are still images that anchor a shot. First/last-frame video mode animates between them, and the first keyframe doubles as the shot thumbnail in the filmstrip.",
+      "Keyframes are optional stills generated on demand in Stage 3 only for scenes in first_last_frame mode. Omni-reference scenes pull Element Images directly without extra keyframe generations.",
     bullets: [
-      "Generate First Frame and Generate Last Frame are independent per scene.",
-      "Generate All Keyframes reviews scenes, total duration, resolution, and model before queueing.",
-      "Element caps apply here too; dropped extras are reported after the batch is queued.",
+      "Generate First Frame and Generate Last Frame appear inline in Stage 3 when a scene uses first_last_frame mode.",
+      "Omni-reference and text-to-video scenes skip keyframes completely to save image tokens.",
+      "Element caps apply when generating a keyframe; dropped extras are reported in a toast.",
     ],
     details: [
       {
         label: "First Frame",
-        text: "Required for first_last_frame mode. Generated from the scene prompt, camera direction, Style Bible, linked element images, and any custom prompt. A failed job can be retried without touching the scene.",
+        text: "Required for first_last_frame mode. Upload an image or click Generate First Frame in Stage 3 to build one from the scene prompt, camera direction, Style Bible, and linked element images.",
       },
       {
         label: "Last Frame",
         text: "Optional. When present, first_last_frame animates from the first keyframe to the last. Without it, the model continues from the first frame using the prompt.",
       },
       {
-        label: "Batch confirmation",
-        text: "Generate All Keyframes opens a summary with scene count, total seconds, resolution, and model. Confirm queues one job per scene and closes the dialog.",
+        label: "Token savings",
+        text: "Because Wan cannot mix first/last frames with reference images, keeping keyframes on-demand avoids generating unused stills for omni_reference scenes.",
       },
       {
         label: "Dropped elements",
         text: "If a scene links more elements than the image cap permits, the extra names are dropped in priority order and shown in a toast. Regenerate after trimming links to include them.",
       },
-      {
-        label: "Scene list",
-        text: "Each scene row shows its first and last thumbnails, job state, retry controls, and the prompt used. Scenes with no keyframes show generate buttons.",
-      },
     ],
-    where: "Project → Elements & Keyframes → Scene Keyframes",
+    where: "Project → Video & Assets → First / Last Frame scenes",
     href: "/",
     cta: "Open a project",
   },
@@ -500,7 +496,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
         text: "The newest successful voiceover becomes active. Every take is also mirrored flat into the project folder with a version suffix.",
       },
     ],
-    where: "Project → Elements & Keyframes → Optional Voiceover",
+    where: "Project → Elements & Audio → Optional Voiceover",
     href: "/",
     cta: "Open a project",
   },
@@ -563,7 +559,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       },
       {
         label: "first_last_frame",
-        text: "Requires a first_frame image, taken from the Stage 2 first keyframe or uploaded in Stage 3. last_frame is optional. reference_image, reference_video, reference_audio, file, and link are disabled.",
+        text: "Requires a first_frame image, either uploaded or generated on demand in Stage 3. last_frame is optional. reference_image, reference_video, reference_audio, file, and link are disabled.",
       },
       {
         label: "omni_reference",

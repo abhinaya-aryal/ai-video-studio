@@ -12,8 +12,8 @@ const STAGES = [
   },
   {
     value: "stage2",
-    label: "Elements & Keyframes",
-    hint: "Element images, first/last frames",
+    label: "Elements & Audio",
+    hint: "Element images, optional voiceover",
     icon: Layers,
   },
   {

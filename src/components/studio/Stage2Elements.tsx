@@ -5,10 +5,8 @@ import {
   ChevronDown,
   ChevronRight,
   ImageIcon,
-  Layers,
   Loader2,
   RotateCcw,
-  Sparkles,
   Volume2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,7 +19,6 @@ import type {
 } from "@/db/schema";
 import { EmptyState } from "@/components/EmptyState";
 import { JobStatusBadge } from "@/components/JobStatusBadge";
-import { BatchConfirmDialog } from "@/components/studio/BatchConfirmDialog";
 import { ElementCard } from "@/components/studio/ElementCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,7 +48,6 @@ export function Stage2Elements({
   onRetryJob,
   onNextStage,
 }: Stage2ElementsProps) {
-  const [batchOpen, setBatchOpen] = useState(false);
   const [ttsOpen, setTtsOpen] = useState(false);
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
   const [ttsTextByScene, setTtsTextByScene] = useState<Record<string, string>>(
@@ -66,72 +62,19 @@ export function Stage2Elements({
     [assets],
   );
 
-  const sceneIds = useMemo(() => scenes.map((s) => s.id), [scenes]);
-
-  const latestSceneJobByKey = useMemo(() => {
+  const latestVoiceoverJobByScene = useMemo(() => {
     const map = new Map<string, Job>();
     for (const job of jobs) {
-      if (
-        !job.sceneId ||
-        (job.role !== "keyframe_first" &&
-          job.role !== "keyframe_last" &&
-          job.role !== "voiceover")
-      ) {
+      if (!job.sceneId || job.role !== "voiceover") {
         continue;
       }
-      const key = `${job.sceneId}:${job.role}`;
-      const existing = map.get(key);
+      const existing = map.get(job.sceneId);
       if (!existing || job.createdAt > existing.createdAt) {
-        map.set(key, job);
+        map.set(job.sceneId, job);
       }
     }
     return map;
   }, [jobs]);
-
-  const getLatestSceneJob = (
-    sceneId: string,
-    role: "keyframe_first" | "keyframe_last" | "voiceover",
-  ): Job | null => latestSceneJobByKey.get(`${sceneId}:${role}`) ?? null;
-
-  const handleGenerateKeyframe = async (
-    sceneId: string,
-    position: "first" | "last",
-  ) => {
-    const key = `${sceneId}:${position}`;
-    setGeneratingKey(key);
-    try {
-      const res = await fetch("/api/generate/keyframe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: project.id,
-          sceneId,
-          position,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Failed to queue keyframe");
-      }
-      if (
-        Array.isArray(data.droppedElements) &&
-        data.droppedElements.length > 0
-      ) {
-        toast.warning(
-          `Keyframe queued; dropped extra elements: ${data.droppedElements.join(", ")}`,
-        );
-      } else {
-        toast.success(`Queued ${position} keyframe`);
-      }
-      await onRefreshJobs();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to queue keyframe",
-      );
-    } finally {
-      setGeneratingKey(null);
-    }
-  };
 
   const handleGenerateTts = async (scene: Scene) => {
     const text = (ttsTextByScene[scene.id] ?? scene.audioScript).trim();
@@ -170,16 +113,22 @@ export function Stage2Elements({
     <div className="space-y-8">
       {/* Element Images */}
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold tracking-tight text-foreground">
               Element Images ({elements.length})
             </h2>
             <p className="text-xs text-muted-foreground">
               Generate or upload one clean image for each character, prop, and
-              location. The video model handles poses and expressions.
+              location. Omni-Reference clips pull these directly — no separate
+              scene keyframes needed.
             </p>
           </div>
+          {onNextStage && scenes.length > 0 && (
+            <Button type="button" onClick={onNextStage}>
+              Continue to Stage 3
+            </Button>
+          )}
         </div>
 
         {elements.length === 0 ? (
@@ -209,254 +158,14 @@ export function Stage2Elements({
         )}
       </section>
 
-      {/* Per-Scene Keyframes */}
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">
-              Scene Keyframes ({scenes.length})
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Preview and generate first/last keyframes for each scene before
-              video synthesis.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              onClick={() => setBatchOpen(true)}
-              disabled={scenes.length === 0}
-              className="gap-1.5"
-            >
-              <Layers className="size-4" />
-              Generate All Keyframes
-            </Button>
-            {onNextStage && scenes.length > 0 && (
-              <Button type="button" variant="outline" onClick={onNextStage}>
-                Continue to Stage 3
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {scenes.length === 0 ? (
-          <EmptyState
-            icon={Layers}
-            title="No scenes yet"
-            description="Add scenes in Stage 1 to generate first and last keyframes."
-            className="py-10"
-          />
-        ) : (
-          <div className="space-y-4">
-            {scenes.map((scene, index) => {
-              const firstAsset = scene.activeKeyframeFirstAssetId
-                ? assetById.get(scene.activeKeyframeFirstAssetId)
-                : undefined;
-              const lastAsset = scene.activeKeyframeLastAssetId
-                ? assetById.get(scene.activeKeyframeLastAssetId)
-                : undefined;
-              const firstJob = getLatestSceneJob(scene.id, "keyframe_first");
-              const lastJob = getLatestSceneJob(scene.id, "keyframe_last");
-
-              const firstActive =
-                firstJob !== null &&
-                firstJob.status !== "READY" &&
-                firstJob.status !== "FAILED";
-              const lastActive =
-                lastJob !== null &&
-                lastJob.status !== "READY" &&
-                lastJob.status !== "FAILED";
-
-              return (
-                <article key={scene.id} className="panel space-y-4 p-5">
-                  <div className="space-y-1.5 border-b border-border pb-3.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <Badge
-                          variant="accent"
-                          className="shrink-0 font-mono tabular-nums"
-                        >
-                          #{String(index + 1).padStart(2, "0")}
-                        </Badge>
-                        <h3 className="truncate text-base font-semibold tracking-tight text-foreground">
-                          {scene.title}
-                        </h3>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Badge variant="outline" className="text-[11px]">
-                          {scene.videoMode}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className="font-mono text-[11px] tabular-nums"
-                        >
-                          {scene.duration}s
-                        </Badge>
-                      </div>
-                    </div>
-                    {scene.visualPrompt && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {scene.visualPrompt}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {/* First Keyframe */}
-                    <div className="space-y-2.5 rounded-xl border border-border bg-surface-2/30 p-3.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-foreground">
-                          First Keyframe
-                        </span>
-                        {firstJob && (
-                          <div className="flex items-center gap-1">
-                            <JobStatusBadge
-                              status={firstJob.status}
-                              errorMessage={firstJob.errorMessage}
-                            />
-                            {firstJob.status === "FAILED" && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => onRetryJob(firstJob.id)}
-                                title="Retry first keyframe"
-                              >
-                                <RotateCcw className="size-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="media-tile relative aspect-video w-full overflow-hidden">
-                        {firstAsset ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={`/api/files/${firstAsset.filePath}?v=${firstAsset.createdAt}`}
-                            alt={`${scene.title} first keyframe`}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full flex-col items-center justify-center gap-1 text-xs text-subtle-foreground">
-                            <ImageIcon className="size-6 opacity-50" />
-                            <span>No first keyframe</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="w-full gap-1.5"
-                        disabled={
-                          generatingKey === `${scene.id}:first` || firstActive
-                        }
-                        onClick={() =>
-                          handleGenerateKeyframe(scene.id, "first")
-                        }
-                      >
-                        {generatingKey === `${scene.id}:first` ||
-                        firstActive ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="size-3.5" />
-                        )}
-                        {firstActive
-                          ? "Generating First Frame..."
-                          : "Generate First Frame"}
-                      </Button>
-                    </div>
-
-                    {/* Last Keyframe */}
-                    <div className="space-y-2.5 rounded-xl border border-border bg-surface-2/30 p-3.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-foreground">
-                          Last Keyframe
-                          {scene.videoMode !== "first_last_frame" && (
-                            <span className="ml-1.5 text-[11px] font-normal text-subtle-foreground">
-                              (optional)
-                            </span>
-                          )}
-                        </span>
-                        {lastJob && (
-                          <div className="flex items-center gap-1">
-                            <JobStatusBadge
-                              status={lastJob.status}
-                              errorMessage={lastJob.errorMessage}
-                            />
-                            {lastJob.status === "FAILED" && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => onRetryJob(lastJob.id)}
-                                title="Retry last keyframe"
-                              >
-                                <RotateCcw className="size-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="media-tile relative aspect-video w-full overflow-hidden">
-                        {lastAsset ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={`/api/files/${lastAsset.filePath}?v=${lastAsset.createdAt}`}
-                            alt={`${scene.title} last keyframe`}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full flex-col items-center justify-center gap-1 text-xs text-subtle-foreground">
-                            <ImageIcon className="size-6 opacity-50" />
-                            <span>No last keyframe</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="w-full gap-1.5"
-                        disabled={
-                          generatingKey === `${scene.id}:last` || lastActive
-                        }
-                        onClick={() => handleGenerateKeyframe(scene.id, "last")}
-                      >
-                        {generatingKey === `${scene.id}:last` || lastActive ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="size-3.5" />
-                        )}
-                        {lastActive
-                          ? "Generating Last Frame..."
-                          : "Generate Last Frame"}
-                      </Button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Collapsed Optional TTS Section */}
+      {/* Optional Voiceover (TTS) */}
       <section className="panel overflow-hidden">
         <button
           type="button"
-          onClick={() => setTtsOpen((prev) => !prev)}
-          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-surface-2/40 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => setTtsOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-surface-2/40"
         >
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-3">
             {ttsOpen ? (
               <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
             ) : (
@@ -486,7 +195,8 @@ export function Stage2Elements({
               </p>
             ) : (
               scenes.map((scene, index) => {
-                const ttsJob = getLatestSceneJob(scene.id, "voiceover");
+                const ttsJob =
+                  latestVoiceoverJobByScene.get(scene.id) ?? null;
                 const ttsAsset = scene.activeAudioAssetId
                   ? assetById.get(scene.activeAudioAssetId)
                   : undefined;
@@ -513,7 +223,10 @@ export function Stage2Elements({
                         <span className="truncate text-sm font-medium text-foreground">
                           {scene.title}
                         </span>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 text-[10px]"
+                        >
                           {scene.audioMode}
                         </Badge>
                       </div>
@@ -597,15 +310,6 @@ export function Stage2Elements({
           </div>
         )}
       </section>
-
-      <BatchConfirmDialog
-        open={batchOpen}
-        onOpenChange={setBatchOpen}
-        projectId={project.id}
-        kind="keyframes"
-        sceneIds={sceneIds}
-        onConfirmed={onRefreshJobs}
-      />
     </div>
   );
 }

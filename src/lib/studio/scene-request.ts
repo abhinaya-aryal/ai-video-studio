@@ -232,7 +232,7 @@ export async function buildSceneVideoRequest(
 
     if (!firstPath) {
       throw new WanValidationError(
-        `Scene "${scene.title}" is in first_last_frame mode but has no keyframe asset. Generate a keyframe in Stage 2 first, or upload a first frame.`,
+        `Scene "${scene.title}" is in first_last_frame mode but has no first frame. Generate or upload a first frame in Stage 3, or switch to omni_reference.`,
       );
     }
 
@@ -344,7 +344,6 @@ export async function buildSceneVideoRequest(
       duration: scene.duration,
       resolution: project.resolution,
       ratio: project.aspectRatio,
-      ...(prompt.length >= 80 ? { promptExtend: false } : {}),
     },
     cap,
   );

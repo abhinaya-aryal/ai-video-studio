@@ -373,6 +373,29 @@ describe("polishPrompt", () => {
     expect(systemMsg?.content).toContain("Audio mode is silent");
   });
 
+  it("does not impose a tight maxTokens cap that can truncate polished JSON", async () => {
+    const longVisualPrompt = "Wide tracking shot through a neon bazaar. ".repeat(
+      90,
+    );
+    const chat = vi.fn<ChatCompletionFn>(async () =>
+      JSON.stringify({
+        visualPrompt: longVisualPrompt.trim(),
+        cameraDirection: "Wide tracking shot, 35mm anamorphic",
+        audioScript: "Rain on corrugated iron and distant market chatter.",
+      }),
+    );
+
+    const polished = await polishPrompt({
+      text: "A detailed market chase at night",
+      context: { audioMode: "ambient_only" },
+      chat,
+    });
+
+    expect(polished.visualPrompt).toBe(longVisualPrompt.trim());
+    const callOptions = chat.mock.calls[0]?.[1];
+    expect(callOptions?.maxTokens).toBeUndefined();
+  });
+
   it("retries once on invalid polish output and throws RefinerError on double failure", async () => {
     const chat = vi
       .fn<ChatCompletionFn>()
